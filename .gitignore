@@ -40,3 +40,10 @@ dist-ssr
 # runtime assets and must remain tracked so Cloud Build ships CAD execution.
 
 skills-lock.json
+
+# Local development files and obsolete tooling
+/.agents/
+/.cursor/
+/vercel.json
+/llm-latency.json
+/scripts/load-prod-snapshot.mjs

@@ -1,0 +1,164 @@
+.iris-wordmark {
+  display: block;
+  width: 78.25px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.iris-wordmark--compact {
+  width: 71px;
+  height: 21px;
+  transform: translateY(5px);
+}
+
+.iris-signin-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #fff;
+  color: #1d1d1f;
+  font-family:
+    'Geist Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.iris-signin-back {
+  position: absolute;
+  top: 24px;
+  left: 25px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #6e6e73;
+  cursor: pointer;
+}
+
+.iris-signin-back:hover {
+  background: #f2f2f4;
+  color: #1d1d1f;
+}
+
+.iris-signin-back svg {
+  width: 18px;
+  height: 18px;
+}
+
+.iris-signin-card {
+  width: min(100%, 440px);
+  display: grid;
+  justify-items: center;
+  gap: 27px;
+  padding: 38px 36px 36px;
+  border: 0;
+  border-radius: 24px;
+  background: #f3f3f5;
+  box-shadow:
+    0 22px 48px rgba(29, 29, 31, 0.12),
+    0 5px 16px rgba(29, 29, 31, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  animation: iris-signin-card-in 520ms cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+
+.iris-signin-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.iris-signin-logo {
+  width: 56px;
+  height: 56px;
+}
+
+.iris-signin-wordmark {
+  margin-top: 8px;
+}
+
+.iris-signin-google {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #d7d7dc;
+  border-radius: 11px;
+  background: #fff;
+  color: #1d1d1f;
+  box-shadow: 0 1px 2px rgba(29, 29, 31, 0.035);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.iris-signin-google:hover:not(:disabled) {
+  border-color: #c6c6cc;
+  background: #fdfdfe;
+  box-shadow: 0 4px 12px rgba(29, 29, 31, 0.07);
+}
+
+.iris-signin-google:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.iris-signin-google:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
+.iris-signin-google svg {
+  width: 18px;
+  height: 18px;
+}
+
+.iris-signin-back:focus-visible,
+.iris-signin-google:focus-visible {
+  outline: 3px solid rgba(45, 22, 67, 0.14);
+  outline-offset: 3px;
+}
+
+@keyframes iris-signin-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 520px) {
+  .iris-signin-page {
+    padding: 16px;
+  }
+
+  .iris-signin-card {
+    width: 100%;
+    padding: 34px 24px 32px;
+  }
+
+  .iris-signin-back {
+    top: 12px;
+    left: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iris-signin-card {
+    animation: none;
+  }
+}

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="UTF-8" />
+  <title>Assembly fingerprint spike runner</title>
+  <body>
+    <p id="status">Starting real OCP.wasm spike…</p>
+    <pre id="output"></pre>
+    <script type="module">
+      const source = await (
+        await fetch('./fingerprint-spike.html', { cache: 'no-store' })
+      ).text();
+      const match = source.match(
+        /const PYTHON = String\.raw`([\s\S]*?)`;\s*\n\s*let worker/,
+      );
+      if (!match) throw new Error('Could not extract the Python Spike source');
+      const python = match[1]
+        .replace(
+          'def _hash_code(shape, repetitions=1000):\n    start = time.perf_counter()',
+          `def _hash_code(shape, repetitions=1000):
+    if not hasattr(shape, "HashCode"):
+        return {
+            "available": False,
+            "reason": f"{type(shape).__name__} does not expose HashCode in OCP.wasm",
+        }
+    start = time.perf_counter()`,
+        )
+        .replace(
+          '    return {\n        "value": value,\n        "total_ms": _elapsed_ms(start),',
+          '    return {\n        "available": True,\n        "value": value,\n        "total_ms": _elapsed_ms(start),',
+        );
+
+      const worker = new Worker(
+        new URL(
+          '../../src/vendor/simplecadapi-webharness/worker.mjs',
+          import.meta.url,
+        ),
+        { type: 'module' },
+      );
+      let sequence = 0;
+      const pending = new Map();
+      worker.addEventListener('message', (event) => {
+        const request = pending.get(event.data?.id);
+        if (!request) return;
+        pending.delete(event.data.id);
+        event.data.err
+          ? request.reject(new Error(event.data.err.message))
+          : request.resolve(event.data.data);
+      });
+      const post = (type, data) => {
+        const id = `fingerprint-spike-${++sequence}`;
+        return new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+          worker.postMessage({ id, type, data });
+        });
+      };
+      const wheel = (name) =>
+        new URL(`/public/vendor/simplecadapi/${name}`, location.origin).href;
+      const parse = (stdout) => {
+        const prefix = 'CADAM_FINGERPRINT_SPIKE=';
+        const line = stdout
+          .split(/\r?\n/)
+          .find((item) => item.startsWith(prefix));
+        if (!line) throw new Error('Fingerprint report missing');
+        return JSON.parse(line.slice(prefix.length));
+      };
+
+      try {
+        const startedAt = performance.now();
+        await post('init', {
+          ocpWheelUrl: wheel(
+            'cadquery_ocp_novtk_ocp_wasm-7.9.3.1.post202607021200-cp314-cp314-pyemscripten_2026_0_wasm32.whl',
+          ),
+          simplecadapiWheelUrl: wheel('simplecadapi-2.0.1b7-py3-none-any.whl'),
+        });
+        const reports = [];
+        for (let run = 1; run <= 3; run += 1) {
+          await post('reset_session', {
+            sessionId: 'assembly-fingerprint-spike',
+          });
+          const startedRun = performance.now();
+          const response = await post('run_code', {
+            sessionId: 'assembly-fingerprint-spike',
+            code: python,
+          });
+          if (!response?.ok) {
+            throw new Error(
+              response?.error?.technical_details ||
+                response?.error?.what_happened ||
+                'run_code failed',
+            );
+          }
+          reports.push({
+            run,
+            wall_ms: performance.now() - startedRun,
+            report: parse(response.stdout),
+          });
+        }
+        window.__FINGERPRINT_SPIKE__ = {
+          ok: true,
+          total_wall_ms: performance.now() - startedAt,
+          reports,
+        };
+      } catch (error) {
+        window.__FINGERPRINT_SPIKE__ = {
+          ok: false,
+          error: error instanceof Error ? error.stack : String(error),
+        };
+      }
+      document.querySelector('#status').textContent = window
+        .__FINGERPRINT_SPIKE__.ok
+        ? 'Complete'
+        : 'Failed';
+      document.querySelector('#output').textContent = JSON.stringify(
+        window.__FINGERPRINT_SPIKE__,
+        null,
+        2,
+      );
+    </script>
+  </body>
+</html>

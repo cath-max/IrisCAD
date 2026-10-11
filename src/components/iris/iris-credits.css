@@ -1,0 +1,67 @@
+.iris-credits-section {
+  border-color: #dedee3 !important;
+  background: #fff !important;
+}
+
+.iris-credits-balance {
+  display: grid;
+  min-width: 132px;
+  gap: 3px;
+  border: 1px solid #ded5ee;
+  border-radius: 14px;
+  padding: 11px 13px;
+  background: linear-gradient(135deg, #faf8ff, #f4f1fb);
+  text-align: right;
+}
+
+.iris-credits-balance strong {
+  color: #2d1643;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.iris-credits-balance span {
+  color: #746d7c;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.iris-sidebar-credit-balance {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  border: 1px solid #dedee3;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #fff;
+  color: #4b4552;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.iris-sidebar-credit-balance svg {
+  width: 14px;
+  height: 14px;
+  color: #7655bd;
+  fill: currentColor;
+}
+
+.iris-sidebar-credit-balance strong {
+  color: #2d1643;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .iris-credits-balance {
+    min-width: 118px;
+    padding: 9px 10px;
+  }
+
+  .iris-credits-balance strong {
+    font-size: 13px;
+  }
+}

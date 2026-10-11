@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="UTF-8" />
+  <title>B-Rep fingerprint post-mesh spike</title>
+  <body>
+    <p id="status">Starting…</p>
+    <pre id="output"></pre>
+    <script type="module">
+      const python = String.raw`
+import hashlib
+import json
+import os
+import time
+
+import simplecadapi as scad
+from OCP.BRepTools import BRepTools
+from simplecadapi import mesh_export
+
+
+def digest(shape, label):
+    path = f"/tmp/{label}.brep"
+    start = time.perf_counter()
+    BRepTools.Write_s(shape, path)
+    with open(path, "rb") as stream:
+        payload = stream.read()
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
+    os.remove(path)
+    return {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "byte_length": len(payload),
+        "elapsed_ms": elapsed_ms,
+    }
+
+
+plate = scad.make_box_rsolid(80.0, 60.0, 8.0)
+holes = [
+    scad.make_cylinder_rsolid(3.0, 8.0, bottom_face_center=(x, y, 0.0))
+    for x in (-30.0, -18.0, -6.0, 6.0, 18.0, 30.0)
+    for y in (-20.0, 20.0)
+]
+body = scad.cut_rsolid(plate, *holes)
+before_mesh = digest(body.wrapped, "before_mesh")
+
+mesh_start = time.perf_counter()
+mesh = mesh_export.build_render_mesh(
+    body,
+    mesh_tolerance=0.12,
+    mesh_angular_tolerance=0.1,
+    shading="smooth",
+)
+mesh_ms = (time.perf_counter() - mesh_start) * 1000.0
+after_mesh = digest(body.wrapped, "after_mesh")
+
+clean_start = time.perf_counter()
+BRepTools.Clean_s(body.wrapped)
+clean_ms = (time.perf_counter() - clean_start) * 1000.0
+after_clean = digest(body.wrapped, "after_clean")
+
+placement = scad.make_placement_rplacement(
+    origin=(12.5, -7.25, 3.0),
+    x_axis=(0.0, 1.0, 0.0),
+    y_axis=(-1.0, 0.0, 0.0),
+)
+raw_placement = placement.to_dict()
+
+
+def normalized_number(value):
+    number = float(value)
+    return 0.0 if number == 0.0 else number
+
+
+normalized_placement = {
+    key: [normalized_number(value) for value in raw_placement[key]]
+    for key in ("origin", "x_axis", "y_axis", "z_axis")
+}
+
+report = {
+    "before_mesh": before_mesh,
+    "after_mesh": after_mesh,
+    "after_clean": after_clean,
+    "mesh_ms": mesh_ms,
+    "triangle_count": int(mesh.triangle_count),
+    "clean_ms": clean_ms,
+    "before_equals_after_mesh": before_mesh["sha256"] == after_mesh["sha256"],
+    "before_equals_after_clean": before_mesh["sha256"] == after_clean["sha256"],
+    "placement_raw": raw_placement,
+    "placement_normalized": normalized_placement,
+    "placement_canonical": json.dumps(
+        normalized_placement, sort_keys=True, separators=(",", ":")
+    ),
+}
+print("CADAM_POST_MESH_SPIKE=" + json.dumps(report, sort_keys=True))
+result = body
+`;
+
+      const worker = new Worker(
+        new URL(
+          '../../src/vendor/simplecadapi-webharness/worker.mjs',
+          import.meta.url,
+        ),
+        { type: 'module' },
+      );
+      let sequence = 0;
+      const pending = new Map();
+      worker.addEventListener('message', (event) => {
+        const request = pending.get(event.data?.id);
+        if (!request) return;
+        pending.delete(event.data.id);
+        event.data.err
+          ? request.reject(new Error(event.data.err.message))
+          : request.resolve(event.data.data);
+      });
+      const post = (type, data) => {
+        const id = `post-mesh-spike-${++sequence}`;
+        return new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+          worker.postMessage({ id, type, data });
+        });
+      };
+      const wheel = (name) =>
+        new URL(`/public/vendor/simplecadapi/${name}`, location.origin).href;
+
+      try {
+        await post('init', {
+          ocpWheelUrl: wheel(
+            'cadquery_ocp_novtk_ocp_wasm-7.9.3.1.post202607021200-cp314-cp314-pyemscripten_2026_0_wasm32.whl',
+          ),
+          simplecadapiWheelUrl: wheel('simplecadapi-2.0.1b7-py3-none-any.whl'),
+        });
+        const response = await post('run_code', {
+          sessionId: 'assembly-post-mesh-fingerprint-spike',
+          code: python,
+        });
+        if (!response?.ok) {
+          throw new Error(
+            response?.error?.technical_details ||
+              response?.error?.what_happened,
+          );
+        }
+        const prefix = 'CADAM_POST_MESH_SPIKE=';
+        const line = response.stdout
+          .split(/\r?\n/)
+          .find((item) => item.startsWith(prefix));
+        window.__FINGERPRINT_SPIKE__ = {
+          ok: true,
+          report: JSON.parse(line.slice(prefix.length)),
+        };
+      } catch (error) {
+        window.__FINGERPRINT_SPIKE__ = {
+          ok: false,
+          error: error instanceof Error ? error.stack : String(error),
+        };
+      }
+      document.querySelector('#status').textContent = window
+        .__FINGERPRINT_SPIKE__.ok
+        ? 'Complete'
+        : 'Failed';
+      document.querySelector('#output').textContent = JSON.stringify(
+        window.__FINGERPRINT_SPIKE__,
+        null,
+        2,
+      );
+    </script>
+  </body>
+</html>

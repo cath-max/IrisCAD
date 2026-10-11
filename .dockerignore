@@ -1,0 +1,17 @@
+.git
+.github
+.agents
+.cursor
+.output
+.tanstack
+dist
+node_modules
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.local.template
+coverage
+benchmarks
+scripts/incremental-meshing
+scripts/latency

@@ -1,0 +1,15 @@
+/* The signed-out root route is outside IrisCadShell, so percentage heights on
+ * its prompt surface resolve to content height instead of the viewport. */
+.iris-prompt-page,
+.iris-prompt-surface,
+.iris-prompt-main {
+  min-height: 100dvh;
+}
+
+/* Authenticated prompt routes are hosted inside the shell, whose viewport
+ * constraints should remain authoritative. */
+.iris-shell-stage .iris-prompt-page,
+.iris-shell-stage .iris-prompt-surface,
+.iris-shell-stage .iris-prompt-main {
+  min-height: 100%;
+}

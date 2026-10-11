@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="UTF-8" />
+  <title>Assembly Part mesh Worker contract Spike</title>
+  <body>
+    <p id="status">Starting real OCP.wasm Worker contract test…</p>
+    <pre id="output"></pre>
+    <script type="module">
+      const worker = new Worker(
+        new URL(
+          '../../src/vendor/simplecadapi-webharness/worker.mjs',
+          import.meta.url,
+        ),
+        { type: 'module' },
+      );
+      let sequence = 0;
+      const pending = new Map();
+      worker.addEventListener('message', (event) => {
+        const request = pending.get(event.data?.id);
+        if (!request) return;
+        pending.delete(event.data.id);
+        event.data.err
+          ? request.reject(new Error(event.data.err.message))
+          : request.resolve(event.data.data);
+      });
+      const post = (type, data) => {
+        const id = `todo3-worker-spike-${++sequence}`;
+        return new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+          worker.postMessage({ id, type, data });
+        });
+      };
+      const wheel = (name) =>
+        new URL(`/public/vendor/simplecadapi/${name}`, location.origin).href;
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const assemblyCode = (width, offset) => `import simplecadapi as scad
+body = scad.make_box_rsolid(${width}, 2, 2)
+part = scad.make_part_rpart("shared_box", body, name="Shared box")
+result = scad.make_assembly_rassembly("worker_contract")
+result = scad.add_component_rassembly(result, part, "left", scad.make_placement_rplacement((-${offset}, 0, 0)))
+result = scad.add_component_rassembly(result, part, "right", scad.make_placement_rplacement((${offset}, 0, 0)))`;
+
+      try {
+        const sessionId = 'todo3-worker-contract';
+        await post('init', {
+          ocpWheelUrl: wheel(
+            'cadquery_ocp_novtk_ocp_wasm-7.9.3.1.post202607021200-cp314-cp314-pyemscripten_2026_0_wasm32.whl',
+          ),
+          simplecadapiWheelUrl: wheel('simplecadapi-2.0.1b7-py3-none-any.whl'),
+        });
+        await post('reset_session', { sessionId });
+
+        const firstRun = await post('run_code', {
+          sessionId,
+          code: assemblyCode(2, 10),
+        });
+        assert(firstRun.ok, 'initial run_code failed');
+        const firstState = await post('inspect_assembly_render_state', {
+          sessionId,
+          shapeName: 'result',
+        });
+        assert(firstState.ok, 'initial render-state inspection failed');
+        assert(
+          firstState.parts.length === 1,
+          'shared Part was not deduplicated',
+        );
+        assert(
+          firstState.components.length === 2,
+          'Component instances were not kept separate',
+        );
+        const firstDigest =
+          firstState.parts[0].geometry_fingerprint.fingerprint.sha256;
+
+        const localMeshes = await post('render_assembly_part_meshes', {
+          sessionId,
+          shapeName: 'result',
+          partIds: ['shared_box', 'shared_box'],
+          meshTolerance: 0.12,
+          meshAngularTolerance: 0.1,
+          shading: 'smooth',
+        });
+        assert(localMeshes.ok, 'Part-local meshing failed');
+        assert(
+          localMeshes.parts.length === 1,
+          'Part was tessellated more than once',
+        );
+        assert(
+          localMeshes.parts[0].bounds.min[0] === -1 &&
+            localMeshes.parts[0].bounds.max[0] === 1,
+          'Component Placement was baked into the Part-local mesh',
+        );
+
+        const placementRun = await post('run_code', {
+          sessionId,
+          code: assemblyCode(2, 25),
+        });
+        assert(placementRun.ok, 'placement-only run_code failed');
+        const placementState = await post('inspect_assembly_render_state', {
+          sessionId,
+          shapeName: 'result',
+        });
+        const placementDigest =
+          placementState.parts[0].geometry_fingerprint.fingerprint.sha256;
+        assert(
+          placementDigest === firstDigest,
+          'Placement-only change altered geometry fingerprint',
+        );
+
+        const shapeRun = await post('run_code', {
+          sessionId,
+          code: assemblyCode(3, 25),
+        });
+        assert(shapeRun.ok, 'shape-change run_code failed');
+        const shapeState = await post('inspect_assembly_render_state', {
+          sessionId,
+          shapeName: 'result',
+        });
+        const changedDigest =
+          shapeState.parts[0].geometry_fingerprint.fingerprint.sha256;
+        assert(
+          changedDigest !== firstDigest,
+          'shape change kept old fingerprint',
+        );
+
+        const missing = await post('render_assembly_part_meshes', {
+          sessionId,
+          shapeName: 'result',
+          partIds: ['missing'],
+        });
+        assert(!missing.ok, 'unknown part_id did not fail safely');
+
+        window.__TODO3_WORKER_SPIKE__ = {
+          ok: true,
+          checks: {
+            unique_part_count: firstState.parts.length,
+            component_count: firstState.components.length,
+            returned_part_mesh_count: localMeshes.parts.length,
+            local_bounds: localMeshes.parts[0].bounds,
+            placement_only_fingerprint_stable: placementDigest === firstDigest,
+            shape_change_fingerprint_changed: changedDigest !== firstDigest,
+            unknown_part_failed: !missing.ok,
+          },
+        };
+      } catch (error) {
+        window.__TODO3_WORKER_SPIKE__ = {
+          ok: false,
+          error: error instanceof Error ? error.stack : String(error),
+        };
+      }
+      document.querySelector('#status').textContent = window
+        .__TODO3_WORKER_SPIKE__.ok
+        ? 'Complete'
+        : 'Failed';
+      document.querySelector('#output').textContent = JSON.stringify(
+        window.__TODO3_WORKER_SPIKE__,
+        null,
+        2,
+      );
+    </script>
+  </body>
+</html>

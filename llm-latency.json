@@ -1,0 +1,46 @@
+{
+  "suite": "llm",
+  "warm": true,
+  "total_ms": 50504,
+  "conversationId": "2db542fb-9c5d-416d-a974-45146e8a3c66",
+  "model": "anthropic/claude-sonnet-5",
+  "prompt": "Design a small planetary gearbox housing for 3D printing: sun gear bore, 3 planet pin holes on a bolt circle, carrier clearance, lid seating lip, and M3 mounting holes on a flange. Use top-level parameters for module, teeth counts, wall thickness, and clearances. Keep it one printable Solid/Compound in result (no Assembly). Prefer clean fillets on exterior edges only.",
+  "finished": true,
+  "stages": [
+    {
+      "name": "ttfb",
+      "ms": 0,
+      "round": 1
+    },
+    {
+      "name": "tool_input_build_parametric_model",
+      "ms": 25288,
+      "round": 1
+    },
+    {
+      "name": "llm_round_total",
+      "ms": 29218,
+      "round": 1
+    },
+    {
+      "name": "round_gap",
+      "ms": 0,
+      "round": 2
+    },
+    {
+      "name": "ttfb",
+      "ms": 0,
+      "round": 2
+    },
+    {
+      "name": "thinking",
+      "ms": 11904,
+      "round": 2
+    },
+    {
+      "name": "llm_round_total",
+      "ms": 21025,
+      "round": 2
+    }
+  ]
+}

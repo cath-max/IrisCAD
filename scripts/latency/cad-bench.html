@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CADAM CAD latency bench</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        margin: 1.5rem;
+        background: #111;
+        color: #eee;
+      }
+      table {
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+      th,
+      td {
+        border: 1px solid #444;
+        padding: 0.4rem 0.75rem;
+        text-align: left;
+      }
+      button {
+        margin-right: 0.5rem;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+      }
+      pre {
+        background: #1a1a1a;
+        padding: 0.75rem;
+        overflow: auto;
+        max-height: 40vh;
+      }
+      .muted {
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CAD latency bench</h1>
+    <p class="muted">
+      Times CADAM vendored Worker RPCs only (no LLM). Fixture: 40mm cube with
+      top-level <code>result</code>.
+    </p>
+    <div>
+      <button id="runCold" type="button">Run (cold init)</button>
+      <button id="runWarm" type="button" disabled>Run again (warm)</button>
+      <button id="download" type="button" disabled>Download JSON</button>
+    </div>
+    <p id="status">idle</p>
+    <table>
+      <thead>
+        <tr>
+          <th>stage</th>
+          <th>ms</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <pre id="out">{}</pre>
+
+    <script type="module">
+      // Keep in sync with src/worker/simpleCadWheels.ts
+      const OCP_WHEEL =
+        'cadquery_ocp_novtk_ocp_wasm-7.9.3.1.post202607021200-cp314-cp314-pyemscripten_2026_0_wasm32.whl';
+      const PACKAGE_WHEEL = 'simplecadapi-2.0.1b2-py3-none-any.whl';
+
+      const CUBE_CODE = `
+import simplecadapi as scad
+result = scad.make_box_rsolid(40.0, 40.0, 40.0, bottom_face_center=(0.0, 0.0, 0.0))
+print("volume", round(result.get_volume(), 3))
+`.trim();
+
+      const SESSION = 'latency-bench';
+      const STATUS = document.getElementById('status');
+      const ROWS = document.getElementById('rows');
+      const OUT = document.getElementById('out');
+      const BTN_COLD = document.getElementById('runCold');
+      const BTN_WARM = document.getElementById('runWarm');
+      const BTN_DL = document.getElementById('download');
+
+      /** @type {Worker | null} */
+      let worker = null;
+      let initialized = false;
+      /** @type {object | null} */
+      let lastReport = null;
+
+      function wheelUrl(filename) {
+        return new URL(
+          `/public/vendor/simplecadapi/${filename}`,
+          window.location.origin,
+        ).href;
+      }
+
+      function ensureWorker() {
+        if (worker) return worker;
+        worker = new Worker(
+          new URL(
+            '../../src/vendor/simplecadapi-webharness/worker.mjs',
+            import.meta.url,
+          ),
+          { type: 'module' },
+        );
+        worker.addEventListener('message', (event) => {
+          // Unsolicited ready pings have no id — ignore.
+          if (event.data && event.data.type === 'ready' && !event.data.id) {
+            return;
+          }
+        });
+        return worker;
+      }
+
+      function post(type, data) {
+        const w = ensureWorker();
+        return new Promise((resolve, reject) => {
+          const id = Math.random().toString(36).slice(2);
+          const handler = (event) => {
+            if (!event.data || event.data.id !== id) return;
+            w.removeEventListener('message', handler);
+            if (event.data.err) {
+              reject(
+                new Error(
+                  event.data.err.message || JSON.stringify(event.data.err),
+                ),
+              );
+              return;
+            }
+            resolve(event.data.data);
+          };
+          w.addEventListener('message', handler);
+          w.postMessage({ id, type, data });
+        });
+      }
+
+      async function timed(name, fn) {
+        const t0 = performance.now();
+        const result = await fn();
+        return { name, ms: Math.round(performance.now() - t0), result };
+      }
+
+      function renderReport(report) {
+        lastReport = report;
+        window.__BENCH__ = report;
+        ROWS.innerHTML = '';
+        for (const stage of report.stages) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${stage.name}</td><td>${stage.ms}</td>`;
+          ROWS.appendChild(tr);
+        }
+        OUT.textContent = JSON.stringify(report, null, 2);
+        console.table(report.stages);
+        BTN_DL.disabled = false;
+        BTN_WARM.disabled = !initialized;
+      }
+
+      async function runBench({ cold }) {
+        BTN_COLD.disabled = true;
+        BTN_WARM.disabled = true;
+        BTN_DL.disabled = true;
+        const stages = [];
+        const suiteStart = performance.now();
+
+        try {
+          if (cold || !initialized) {
+            STATUS.textContent = 'init (Pyodide + wheels)…';
+            const initStage = await timed('init', () =>
+              post('init', {
+                ocpWheelUrl: wheelUrl(OCP_WHEEL),
+                simplecadapiWheelUrl: wheelUrl(PACKAGE_WHEEL),
+              }),
+            );
+            stages.push({ name: initStage.name, ms: initStage.ms });
+            initialized = true;
+          }
+
+          STATUS.textContent = 'reset_session…';
+          await post('reset_session', { sessionId: SESSION });
+
+          STATUS.textContent = 'run_code…';
+          const runStage = await timed('run_code', () =>
+            post('run_code', { code: CUBE_CODE, sessionId: SESSION }),
+          );
+          stages.push({ name: runStage.name, ms: runStage.ms });
+          if (!runStage.result?.ok) {
+            throw new Error(
+              runStage.result?.error?.what_happened ||
+                runStage.result?.error?.technical_details ||
+                'run_code failed',
+            );
+          }
+          if (
+            !Array.isArray(runStage.result.shapes) ||
+            !runStage.result.shapes.includes('result')
+          ) {
+            throw new Error(
+              `expected shape "result", got ${JSON.stringify(runStage.result.shapes)}`,
+            );
+          }
+
+          STATUS.textContent = 'render_views…';
+          const viewsStage = await timed('render_views', () =>
+            post('render_views', {
+              sessionId: SESSION,
+              shapeName: 'result',
+              views: ['iso', 'front', 'back', 'top', 'bottom', 'left', 'right'],
+              imageSize: 512,
+              showAxes: true,
+              showEdges: true,
+              pathPrefix: '/tmp/result_preview',
+            }),
+          );
+          stages.push({ name: viewsStage.name, ms: viewsStage.ms });
+          if (!viewsStage.result?.ok) {
+            throw new Error(
+              viewsStage.result?.error?.what_happened || 'render_views failed',
+            );
+          }
+
+          STATUS.textContent = 'render_mesh…';
+          const meshStage = await timed('render_mesh', () =>
+            post('render_mesh', {
+              sessionId: SESSION,
+              shapeName: 'result',
+              meshTolerance: 0.12,
+              meshAngularTolerance: 0.1,
+              shading: 'smooth',
+              pathPrefix: '/tmp/preview_mesh',
+            }),
+          );
+          stages.push({ name: meshStage.name, ms: meshStage.ms });
+          if (!meshStage.result?.ok) {
+            throw new Error(
+              meshStage.result?.error?.what_happened || 'render_mesh failed',
+            );
+          }
+
+          STATUS.textContent = 'export_stl…';
+          const stlStage = await timed('export_stl', () =>
+            post('export_shape', {
+              sessionId: SESSION,
+              shapeName: 'result',
+              format: 'stl',
+              path: '/tmp/latency_result.stl',
+            }),
+          );
+          stages.push({ name: stlStage.name, ms: stlStage.ms });
+          if (!stlStage.result?.ok) {
+            throw new Error(
+              stlStage.result?.error?.what_happened || 'export_stl failed',
+            );
+          }
+
+          STATUS.textContent = 'export_step…';
+          const stepStage = await timed('export_step', () =>
+            post('export_shape', {
+              sessionId: SESSION,
+              shapeName: 'result',
+              format: 'step',
+              path: '/tmp/latency_result.step',
+            }),
+          );
+          stages.push({ name: stepStage.name, ms: stepStage.ms });
+          if (!stepStage.result?.ok) {
+            throw new Error(
+              stepStage.result?.error?.what_happened || 'export_step failed',
+            );
+          }
+
+          const report = {
+            suite: 'cad',
+            warm: !stages.some((s) => s.name === 'init'),
+            total_ms: Math.round(performance.now() - suiteStart),
+            fixture: '40mm_cube_result',
+            stages,
+          };
+          STATUS.textContent = 'done';
+          renderReport(report);
+        } catch (error) {
+          STATUS.textContent =
+            'FATAL: ' +
+            (error instanceof Error ? error.message : String(error));
+          console.error(error);
+        } finally {
+          BTN_COLD.disabled = false;
+          BTN_WARM.disabled = !initialized;
+        }
+      }
+
+      BTN_COLD.addEventListener('click', () => {
+        initialized = false;
+        if (worker) {
+          worker.terminate();
+          worker = null;
+        }
+        void runBench({ cold: true });
+      });
+      BTN_WARM.addEventListener('click', () => void runBench({ cold: false }));
+      BTN_DL.addEventListener('click', () => {
+        if (!lastReport) return;
+        const blob = new Blob([JSON.stringify(lastReport, null, 2)], {
+          type: 'application/json',
+        });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'cad-latency.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      // Auto-run cold on load.
+      void runBench({ cold: true });
+    </script>
+  </body>
+</html>

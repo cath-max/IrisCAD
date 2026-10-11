@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="UTF-8" />
+  <title>B-Rep clean-first fingerprint spike</title>
+  <body>
+    <p id="status">Starting…</p>
+    <pre id="output"></pre>
+    <script type="module">
+      const source = await (
+        await fetch('./fingerprint-post-mesh-spike.html', { cache: 'no-store' })
+      ).text();
+      const match = source.match(
+        /const python = String\.raw`([\s\S]*?)`;\s*\n\s*const worker/,
+      );
+      if (!match) throw new Error('Could not extract post-mesh Python source');
+      const python = match[1]
+        .replace(
+          'before_mesh = digest(body.wrapped, "before_mesh")',
+          `initial_clean_start = time.perf_counter()
+BRepTools.Clean_s(body.wrapped)
+initial_clean_ms = (time.perf_counter() - initial_clean_start) * 1000.0
+before_mesh = digest(body.wrapped, "before_mesh")`,
+        )
+        .replace(
+          '    "clean_ms": clean_ms,',
+          '    "initial_clean_ms": initial_clean_ms,\n    "clean_ms": clean_ms,',
+        );
+
+      const worker = new Worker(
+        new URL(
+          '../../src/vendor/simplecadapi-webharness/worker.mjs',
+          import.meta.url,
+        ),
+        { type: 'module' },
+      );
+      let sequence = 0;
+      const pending = new Map();
+      worker.addEventListener('message', (event) => {
+        const request = pending.get(event.data?.id);
+        if (!request) return;
+        pending.delete(event.data.id);
+        event.data.err
+          ? request.reject(new Error(event.data.err.message))
+          : request.resolve(event.data.data);
+      });
+      const post = (type, data) => {
+        const id = `clean-first-spike-${++sequence}`;
+        return new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+          worker.postMessage({ id, type, data });
+        });
+      };
+      const wheel = (name) =>
+        new URL(`/public/vendor/simplecadapi/${name}`, location.origin).href;
+
+      try {
+        await post('init', {
+          ocpWheelUrl: wheel(
+            'cadquery_ocp_novtk_ocp_wasm-7.9.3.1.post202607021200-cp314-cp314-pyemscripten_2026_0_wasm32.whl',
+          ),
+          simplecadapiWheelUrl: wheel('simplecadapi-2.0.1b7-py3-none-any.whl'),
+        });
+        const response = await post('run_code', {
+          sessionId: 'assembly-clean-first-fingerprint-spike',
+          code: python,
+        });
+        if (!response?.ok) {
+          throw new Error(
+            response?.error?.technical_details ||
+              response?.error?.what_happened,
+          );
+        }
+        const prefix = 'CADAM_POST_MESH_SPIKE=';
+        const line = response.stdout
+          .split(/\r?\n/)
+          .find((item) => item.startsWith(prefix));
+        window.__FINGERPRINT_SPIKE__ = {
+          ok: true,
+          report: JSON.parse(line.slice(prefix.length)),
+        };
+      } catch (error) {
+        window.__FINGERPRINT_SPIKE__ = {
+          ok: false,
+          error: error instanceof Error ? error.stack : String(error),
+        };
+      }
+      document.querySelector('#status').textContent = window
+        .__FINGERPRINT_SPIKE__.ok
+        ? 'Complete'
+        : 'Failed';
+      document.querySelector('#output').textContent = JSON.stringify(
+        window.__FINGERPRINT_SPIKE__,
+        null,
+        2,
+      );
+    </script>
+  </body>
+</html>

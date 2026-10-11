@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assembly fingerprint spike</title>
+    <style>
+      body {
+        margin: 24px;
+        font:
+          14px/1.45 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        color: #172033;
+        background: #f7f8fb;
+      }
+      button {
+        padding: 8px 14px;
+      }
+      pre {
+        padding: 16px;
+        overflow: auto;
+        white-space: pre-wrap;
+        background: white;
+        border: 1px solid #d9deea;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Assembly geometry fingerprint spike</h1>
+    <button id="run" type="button">Run again</button>
+    <p id="status">Starting…</p>
+    <pre id="output"></pre>
+
+    <script type="module">
+      const OCP_WHEEL =
+        'cadquery_ocp_novtk_ocp_wasm-7.9.3.1.post202607021200-cp314-cp314-pyemscripten_2026_0_wasm32.whl';
+      const SIMPLECADAPI_WHEEL = 'simplecadapi-2.0.1b7-py3-none-any.whl';
+      const SESSION_ID = 'assembly-fingerprint-spike';
+      const RUNS = 3;
+      const STATUS = document.querySelector('#status');
+      const OUTPUT = document.querySelector('#output');
+      const RUN_BUTTON = document.querySelector('#run');
+
+      const PYTHON = String.raw`
+import hashlib
+import json
+import os
+import statistics
+import time
+
+import simplecadapi as scad
+from OCP.BRepTools import BRepTools
+from simplecadapi import mesh_export
+
+
+def _elapsed_ms(start):
+    return (time.perf_counter() - start) * 1000.0
+
+
+def _hash_code(shape, repetitions=1000):
+    start = time.perf_counter()
+    value = None
+    for _ in range(repetitions):
+        value = int(shape.HashCode(1000000))
+    return {
+        "value": value,
+        "total_ms": _elapsed_ms(start),
+        "repetitions": repetitions,
+    }
+
+
+def _brep_sha256(shape, label, repetitions=5):
+    digests = []
+    sizes = []
+    timings = []
+    for index in range(repetitions):
+        path = f"/tmp/{label}_{index}.brep"
+        start = time.perf_counter()
+        BRepTools.Write_s(shape, path)
+        with open(path, "rb") as stream:
+            payload = stream.read()
+        timings.append(_elapsed_ms(start))
+        digests.append(hashlib.sha256(payload).hexdigest())
+        sizes.append(len(payload))
+        os.remove(path)
+    return {
+        "value": digests[0],
+        "all_equal": len(set(digests)) == 1,
+        "byte_length": sizes[0],
+        "timings_ms": timings,
+        "median_ms": statistics.median(timings),
+    }
+
+
+def _mesh_timing(body, repetitions=3):
+    timings = []
+    triangles = None
+    for _ in range(repetitions):
+        start = time.perf_counter()
+        mesh = mesh_export.build_render_mesh(
+            body,
+            mesh_tolerance=0.12,
+            mesh_angular_tolerance=0.1,
+            shading="smooth",
+        )
+        timings.append(_elapsed_ms(start))
+        triangles = int(mesh.triangle_count)
+    return {
+        "triangle_count": triangles,
+        "timings_ms": timings,
+        "median_ms": statistics.median(timings),
+    }
+
+
+def _placement_payload(placement):
+    source = placement.to_dict()
+    values = {
+        "origin": [float(value) for value in source["origin"]],
+        "x_axis": [float(value) for value in source["x_axis"]],
+        "y_axis": [float(value) for value in source["y_axis"]],
+        "z_axis": [float(value) for value in source["z_axis"]],
+    }
+    canonical = json.dumps(values, sort_keys=True, separators=(",", ":"))
+    return {
+        "values": values,
+        "canonical": canonical,
+        "sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    }
+
+
+def _fingerprints(body, label):
+    return {
+        "hash_code": _hash_code(body.wrapped),
+        "brep_sha256": _brep_sha256(body.wrapped, label),
+    }
+
+
+base_body = scad.make_box_rsolid(40.0, 30.0, 10.0)
+same_geometry_body = scad.make_box_rsolid(40.0, 30.0, 10.0)
+changed_body = scad.make_box_rsolid(44.0, 30.0, 10.0)
+
+plate = scad.make_box_rsolid(80.0, 60.0, 8.0)
+holes = [
+    scad.make_cylinder_rsolid(3.0, 8.0, bottom_face_center=(x, y, 0.0))
+    for x in (-30.0, -18.0, -6.0, 6.0, 18.0, 30.0)
+    for y in (-20.0, 20.0)
+]
+complex_body = scad.cut_rsolid(plate, *holes)
+
+shared_part = scad.make_part_rpart("shared_box", base_body, name="Shared box")
+other_part = scad.make_part_rpart(
+    "separate_but_equal_box", same_geometry_body, name="Separate equal box"
+)
+identity = scad.identity_placement_rplacement()
+moved = scad.make_placement_rplacement(
+    origin=(12.5, -7.25, 3.0),
+    x_axis=(0.0, 1.0, 0.0),
+    y_axis=(-1.0, 0.0, 0.0),
+)
+
+assembly = scad.make_assembly_rassembly("fingerprint_spike")
+assembly = scad.add_component_rassembly(
+    assembly, shared_part, "shared_identity", identity, name="Shared identity"
+)
+assembly = scad.add_component_rassembly(
+    assembly, shared_part, "shared_moved", moved, name="Shared moved"
+)
+assembly = scad.add_component_rassembly(
+    assembly, other_part, "separate_equal", identity, name="Separate equal"
+)
+
+report = {
+    "environment": {
+        "ocp_hash_upper_bound": 1000000,
+        "mesh_tolerance": 0.12,
+        "mesh_angular_tolerance": 0.1,
+    },
+    "geometry": {
+        "base": _fingerprints(base_body, "base"),
+        "same_geometry_new_body": _fingerprints(
+            same_geometry_body, "same_geometry_new_body"
+        ),
+        "changed_dimension": _fingerprints(changed_body, "changed_dimension"),
+        "complex_perforated_plate": _fingerprints(complex_body, "complex_body"),
+    },
+    "placement": {
+        "identity": _placement_payload(identity),
+        "moved_and_rotated": _placement_payload(moved),
+    },
+    "assembly_checks": {
+        "shared_components_same_part_object": (
+            assembly.components[0].item is assembly.components[1].item
+        ),
+        "shared_components_same_body_object": (
+            assembly.components[0].item.body is assembly.components[1].item.body
+        ),
+        "different_part_ids": [
+            assembly.components[0].item.part_id,
+            assembly.components[2].item.part_id,
+        ],
+    },
+    "cost_comparison": {
+        "box_tessellation": _mesh_timing(base_body),
+        "complex_tessellation": _mesh_timing(complex_body),
+    },
+}
+
+print("CADAM_FINGERPRINT_SPIKE=" + json.dumps(report, sort_keys=True))
+result = assembly
+`;
+
+      let worker;
+      let sequence = 0;
+      const pending = new Map();
+      let initialized = false;
+
+      function wheelUrl(filename) {
+        return new URL(
+          `/public/vendor/simplecadapi/${filename}`,
+          location.origin,
+        ).href;
+      }
+
+      function ensureWorker() {
+        if (worker) return worker;
+        worker = new Worker(
+          new URL(
+            '../../src/vendor/simplecadapi-webharness/worker.mjs',
+            import.meta.url,
+          ),
+          { type: 'module' },
+        );
+        worker.addEventListener('message', (event) => {
+          const request = pending.get(event.data?.id);
+          if (!request) return;
+          pending.delete(event.data.id);
+          if (event.data.err) {
+            request.reject(new Error(event.data.err.message));
+          } else {
+            request.resolve(event.data.data);
+          }
+        });
+        return worker;
+      }
+
+      function post(type, data) {
+        const activeWorker = ensureWorker();
+        const id = `fingerprint-spike-${++sequence}`;
+        return new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+          activeWorker.postMessage({ id, type, data });
+        });
+      }
+
+      function parseReport(stdout) {
+        const prefix = 'CADAM_FINGERPRINT_SPIKE=';
+        const line = stdout
+          .split(/\r?\n/)
+          .find((candidate) => candidate.startsWith(prefix));
+        if (!line)
+          throw new Error('Fingerprint report marker missing from stdout');
+        return JSON.parse(line.slice(prefix.length));
+      }
+
+      async function run() {
+        RUN_BUTTON.disabled = true;
+        STATUS.textContent = 'Running real OCP.wasm spike…';
+        OUTPUT.textContent = '';
+        try {
+          const startedAt = performance.now();
+          if (!initialized) {
+            await post('init', {
+              ocpWheelUrl: wheelUrl(OCP_WHEEL),
+              simplecadapiWheelUrl: wheelUrl(SIMPLECADAPI_WHEEL),
+            });
+            initialized = true;
+          }
+
+          const reports = [];
+          for (let index = 0; index < RUNS; index += 1) {
+            await post('reset_session', { sessionId: SESSION_ID });
+            const startedRun = performance.now();
+            const response = await post('run_code', {
+              sessionId: SESSION_ID,
+              code: PYTHON,
+            });
+            if (!response?.ok) {
+              throw new Error(
+                response?.error?.technical_details ||
+                  response?.error?.what_happened ||
+                  'run_code failed',
+              );
+            }
+            reports.push({
+              run: index + 1,
+              wall_ms: performance.now() - startedRun,
+              report: parseReport(response.stdout),
+            });
+          }
+
+          const result = {
+            ok: true,
+            environment: {
+              ocp_wasm_wheel: OCP_WHEEL,
+              simplecadapi_wheel: SIMPLECADAPI_WHEEL,
+            },
+            total_wall_ms: performance.now() - startedAt,
+            reports,
+          };
+          window.__FINGERPRINT_SPIKE__ = result;
+          OUTPUT.textContent = JSON.stringify(result, null, 2);
+          STATUS.textContent = 'Complete';
+        } catch (error) {
+          const result = {
+            ok: false,
+            error: error instanceof Error ? error.stack : String(error),
+          };
+          window.__FINGERPRINT_SPIKE__ = result;
+          OUTPUT.textContent = JSON.stringify(result, null, 2);
+          STATUS.textContent = 'Failed';
+        } finally {
+          RUN_BUTTON.disabled = false;
+        }
+      }
+
+      RUN_BUTTON.addEventListener('click', run);
+      void run();
+    </script>
+  </body>
+</html>

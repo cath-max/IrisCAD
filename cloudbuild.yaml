@@ -1,0 +1,74 @@
+# Build a public-configured image, then deploy it to Cloud Run. Runtime secrets
+# are referenced by name only; their values remain in Secret Manager.
+steps:
+  # These two values are public browser configuration, but Vite embeds them
+  # into the client bundle at build time. Reject an empty submission here so a
+  # new Cloud Run revision can never replace a working site with the misleading
+  # "Missing API Keys" screen.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: /bin/sh
+    args:
+      - -ec
+      - |
+        test -n '${_VITE_SUPABASE_URL}' || {
+          echo 'Missing _VITE_SUPABASE_URL; deployment stopped.' >&2
+          exit 1
+        }
+        test -n '${_VITE_SUPABASE_ANON_KEY}' || {
+          echo 'Missing _VITE_SUPABASE_ANON_KEY; deployment stopped.' >&2
+          exit 1
+        }
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+      - --build-arg
+      - VITE_SUPABASE_URL=${_VITE_SUPABASE_URL}
+      - --build-arg
+      - VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY}
+      - --build-arg
+      - VITE_APP_URL=https://iriscad.com
+      - --build-arg
+      - VITE_SIMPLECAD_WHEEL_CHINA_MIRROR_BASE_URL=${_VITE_SIMPLECAD_WHEEL_CHINA_MIRROR_BASE_URL}
+      - .
+
+  # `images` is published only after every build step succeeds. Push here so
+  # the following Cloud Run deploy step can resolve this build's image.
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --service-account
+      - ${_RUNTIME_SERVICE_ACCOUNT}
+      - --port
+      - '8080'
+      - --allow-unauthenticated
+      - --set-env-vars
+      - NODE_ENV=production,ENVIRONMENT=production,IRIS_CREDITS_ENABLED=true,APP_URL=https://iriscad.com,VITE_SUPABASE_URL=${_VITE_SUPABASE_URL},VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY},API_RETRIEVAL_MODE=sidecar,API_RETRIEVAL_URL=${_API_RETRIEVAL_URL},API_RETRIEVAL_TIMEOUT_MS=8000
+      - --set-secrets
+      - SUPABASE_SERVICE_ROLE_KEY=iriscad-supabase-service-role:latest,ANTHROPIC_API_KEY=iriscad-anthropic-api-key:latest,OPENROUTER_API_KEY=iriscad-openrouter-api-key:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _API_RETRIEVAL_URL: https://iriscad-retrieval-7c4sjb6ntq-uk.a.run.app
+  _VITE_SIMPLECAD_WHEEL_CHINA_MIRROR_BASE_URL: https://iris-wheel-test-1476610316.cos.ap-shanghai.myqcloud.com/vendor/simplecadapi/

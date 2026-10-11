@@ -1,0 +1,2590 @@
+@font-face {
+  font-family: 'Geist Sans';
+  src: url('/Geist-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/IBMPlexMono-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.iris-shell-stage {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  background: #eeeef1;
+  color: #1d1d1f;
+  font-family:
+    'Geist Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.iris-cad-shell {
+  --iris-shell: #fbfbfd;
+  --iris-panel: #fbfbfd;
+  --iris-ink: #1d1d1f;
+  --iris-secondary: #6e6e73;
+  --iris-line: #dedee3;
+  --iris-purple: #2d1643;
+  --iris-purple-mid: #6b4a80;
+  width: 100%;
+  position: relative;
+  height: calc(100dvh - 32px);
+  min-height: 410px;
+  display: grid;
+  grid-template-columns:
+    var(--iris-sidebar-width, 196px)
+    10px
+    minmax(360px, 1fr)
+    10px
+    var(--iris-inspector-width, 420px);
+  gap: 4px;
+  overflow: visible;
+  border: 0;
+  border-radius: 28px;
+  background: #eeeef1;
+  box-shadow: none;
+}
+
+.iris-cad-shell[data-creation='true'] {
+  grid-template-columns: 196px minmax(0, 1fr);
+}
+
+.iris-cad-shell[data-creation='true'][data-sidebar-resizable='true'][data-sidebar-open='true'] {
+  grid-template-columns:
+    var(--iris-sidebar-width, 196px)
+    10px
+    minmax(0, 1fr);
+}
+
+.iris-cad-shell[data-creation='true'][data-sidebar-resizable='true'][data-sidebar-open='false'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.iris-cad-shell[data-home='true'][data-sidebar-open='true'] {
+  grid-template-columns:
+    var(--iris-sidebar-width, 196px)
+    10px
+    minmax(0, 1fr);
+}
+
+.iris-cad-shell[data-home='true'][data-sidebar-open='false'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.iris-cad-shell[data-creation='false'][data-sidebar-open='false'][data-inspector-open='true'] {
+  grid-template-columns:
+    minmax(360px, 1fr)
+    10px
+    var(--iris-inspector-width, 420px);
+}
+
+.iris-cad-shell[data-creation='false'][data-sidebar-open='true'][data-inspector-open='false'] {
+  grid-template-columns:
+    var(--iris-sidebar-width, 196px)
+    10px
+    minmax(360px, 1fr);
+}
+
+.iris-cad-shell[data-creation='false'][data-sidebar-open='false'][data-inspector-open='false'] {
+  grid-template-columns: minmax(360px, 1fr);
+}
+
+/* The creation page is a conversation surface, not a recessed CAD viewport.
+   Keep its surrounding navigation plane quiet and let the white workspace
+   float above it with the same soft depth language as the Iris panels. */
+.iris-shell-stage[data-home='true'],
+.iris-cad-shell[data-home='true'] {
+  background: #eeeef1;
+}
+
+.iris-cad-shell[data-home='true'] .iris-workspace {
+  border: 0;
+  background: #fff;
+  box-shadow:
+    0 12px 30px rgba(29, 29, 31, 0.1),
+    0 3px 9px rgba(29, 29, 31, 0.055);
+}
+
+.iris-home-sidebar-toggle {
+  position: absolute;
+  z-index: 25;
+  top: 13px;
+  left: 13px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  background: transparent;
+  color: #7b7b81;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.iris-home-sidebar-toggle:hover {
+  background: #f0f0f2;
+  color: #1d1d1f;
+}
+
+.iris-home-sidebar-toggle svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+}
+
+.iris-inspector-close {
+  position: absolute;
+  z-index: 25;
+  top: 13px;
+  right: 13px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  background: transparent;
+  color: #7b7b81;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.iris-inspector-close:hover {
+  background: #f0f0f2;
+  color: #1d1d1f;
+}
+
+.iris-inspector-close svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+  transform: scaleX(-1);
+}
+
+.iris-inspector-restore {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: -1px;
+  width: 12px;
+  height: 100%;
+  border: 0;
+  border-right: 1px solid rgba(29, 29, 31, 0.2);
+  padding: 0;
+  background: transparent;
+  color: #6e6e73;
+  cursor: pointer;
+}
+
+.iris-inspector-restore svg {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 20px;
+  height: 28px;
+  border-radius: 7px 0 0 7px;
+  padding: 4px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(29, 29, 31, 0.12);
+  opacity: 0;
+  transform: translateY(-50%) translateX(2px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.iris-inspector-restore:hover svg,
+.iris-inspector-restore:focus-visible svg {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.iris-resize-handle {
+  position: relative;
+  z-index: 20;
+  width: 10px;
+  min-width: 10px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.iris-resize-handle::after {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 2px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(29, 29, 31, 0.14);
+  content: '';
+  opacity: 0;
+  transform: translateY(-50%);
+  transition:
+    opacity 140ms ease,
+    background 140ms ease;
+}
+
+.iris-resize-handle:hover::after,
+.iris-resize-handle:focus-visible::after {
+  background: var(--iris-purple);
+  opacity: 1;
+}
+
+.iris-cad-shell[data-home='true'] .iris-resize-handle:hover::after,
+.iris-cad-shell[data-home='true'] .iris-resize-handle:focus-visible::after {
+  background: #6e6e73;
+}
+
+.iris-cad-shell *,
+.iris-cad-shell *::before,
+.iris-cad-shell *::after {
+  box-sizing: border-box;
+}
+
+.iris-cad-shell button {
+  font: inherit;
+}
+
+.iris-cad-shell button:focus-visible,
+.iris-cad-shell [tabindex]:focus-visible {
+  outline: 3px solid rgba(29, 29, 31, 0.22);
+  outline-offset: 2px;
+}
+
+.iris-layout-loading {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+
+.iris-layout-loading svg {
+  width: 28px;
+  height: 28px;
+  animation: iris-spin 900ms linear infinite;
+}
+
+.iris-editor-route-loading {
+  background: #fff;
+  color: var(--iris-purple);
+}
+
+@keyframes iris-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.iris-sidebar {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 14px 8px;
+  border-right: 0;
+  background: transparent;
+}
+
+.iris-cad-shell > .iris-sidebar {
+  padding-top: 0;
+}
+
+.iris-sidebar__primary,
+.iris-sidebar__history,
+.iris-sidebar__account {
+  min-width: 0;
+}
+
+.iris-sidebar__history {
+  flex: 1;
+  margin-top: 12px;
+  overflow: auto;
+}
+
+.iris-sidebar__account {
+  margin-top: auto;
+  border-top: 0;
+}
+
+.iris-sidebar-brand-block {
+  display: grid;
+  gap: 14px;
+}
+
+.iris-sidebar-logo-button {
+  width: max-content;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0;
+  background: transparent;
+  color: var(--iris-ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transform: translate(9px, 3px);
+}
+
+.iris-sidebar-logo-button:hover {
+  background: transparent;
+}
+
+.iris-sidebar-logo {
+  width: 32px;
+  height: 32px;
+}
+
+.iris-new-creation {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--iris-ink);
+  box-shadow: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.iris-new-creation:hover {
+  transform: none;
+  background: rgba(29, 29, 31, 0.06);
+  box-shadow: none;
+}
+
+.iris-new-creation:active {
+  transform: none;
+  background: rgba(29, 29, 31, 0.07);
+  box-shadow: none;
+}
+
+.iris-new-creation:disabled,
+.iris-creations-link:disabled {
+  background: transparent;
+  color: var(--iris-secondary);
+  cursor: default;
+  opacity: 0.58;
+}
+
+.iris-new-creation:disabled:hover,
+.iris-creations-link:disabled:hover {
+  background: transparent;
+  color: var(--iris-secondary);
+}
+
+.iris-new-creation svg,
+.iris-creations-link svg,
+.iris-sidebar-action svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.iris-creations-link {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--iris-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+}
+
+.iris-creations-link:hover,
+.iris-creations-link[data-active='true'] {
+  background: rgba(29, 29, 31, 0.06);
+  color: var(--iris-ink);
+}
+
+.iris-sidebar-label {
+  margin: 18px 8px 7px;
+  color: var(--iris-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.iris-recent-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iris-recent-link {
+  min-height: 34px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border-radius: 9px;
+  padding: 0 8px;
+  color: var(--iris-secondary);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.iris-recent-link > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iris-recent-link:hover,
+.iris-recent-link[data-active='true'] {
+  background: rgba(29, 29, 31, 0.055);
+  color: var(--iris-ink);
+}
+
+.iris-recent-thumb {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  background: linear-gradient(145deg, #fff, #dfe1e5);
+}
+
+.iris-recent-link[data-active='true'] .iris-recent-thumb {
+  border-color: #c8c8ce;
+  background: linear-gradient(145deg, #f8f8fa, #d9d9de);
+}
+
+.iris-sidebar-footer {
+  display: grid;
+  gap: 0;
+  padding: 0 0 8px;
+}
+
+.iris-sidebar-github-link {
+  width: max-content;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px 8px;
+  border-radius: 7px;
+  padding: 3px 6px;
+  color: var(--iris-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.iris-sidebar-github-link:hover {
+  background: rgba(29, 29, 31, 0.055);
+  color: var(--iris-ink);
+}
+
+.iris-sidebar-github-link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.iris-sidebar-github-link svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.iris-sidebar-sign-in {
+  width: max-content;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--iris-ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.iris-sidebar-sign-in:hover {
+  background: rgba(29, 29, 31, 0.055);
+}
+
+.iris-sidebar-sign-in svg {
+  width: 17px;
+  height: 17px;
+}
+
+.iris-sidebar-account-card {
+  overflow: visible;
+  padding: 0 8px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.iris-sidebar-action {
+  min-width: 0;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--iris-ink);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.iris-sidebar-action:hover {
+  border-color: transparent;
+  color: var(--iris-ink);
+}
+
+.iris-sidebar-action strong {
+  overflow: hidden;
+  color: var(--iris-ink);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+}
+
+.iris-sidebar-action--credits {
+  width: max-content;
+  min-height: 32px;
+  display: inline-flex;
+  justify-content: flex-start;
+  gap: 7px;
+  border: 1px solid rgba(29, 29, 31, 0.07);
+  border-radius: 999px;
+  padding: 0 11px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 1px 2px rgba(29, 29, 31, 0.04);
+}
+
+.iris-sidebar-action--credits svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.iris-account-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.iris-account-avatar {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(145deg, #d8dde5, #aeb8c5);
+  color: #fff;
+}
+
+.iris-account-copy {
+  min-width: 0;
+}
+
+.iris-account-copy strong,
+.iris-account-copy span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iris-account-copy strong {
+  color: var(--iris-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.iris-account-copy span {
+  margin-top: 2px;
+  color: var(--iris-secondary);
+  font-size: 11px;
+}
+
+.iris-account-menu-button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--iris-secondary);
+  cursor: pointer;
+}
+
+.iris-account-menu-button:hover {
+  background: #ececef;
+  color: var(--iris-ink);
+}
+
+.iris-account-menu-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.iris-account-menu {
+  padding: 5px !important;
+  border-color: #dedee3 !important;
+  background: #fbfbfd !important;
+  color: #1d1d1f !important;
+  box-shadow: 0 10px 28px rgba(29, 29, 31, 0.14) !important;
+  font-family:
+    'Geist Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.iris-account-menu [role='menuitem'] {
+  min-height: 36px;
+  border-radius: 7px;
+}
+
+.iris-account-menu__credits strong {
+  margin-left: auto;
+  color: #6e6e73;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.iris-account-menu [role='menuitem'] {
+  background: transparent !important;
+  color: #1d1d1f !important;
+}
+
+.iris-account-menu [role='menuitem']:hover,
+.iris-account-menu [role='menuitem']:focus {
+  background: #ececef !important;
+  color: #1d1d1f !important;
+}
+
+.iris-workspace {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgba(29, 29, 31, 0.1);
+  border-radius: 24px;
+  background: var(--iris-panel);
+  box-shadow:
+    inset 0 2px 5px rgba(29, 29, 31, 0.09),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.iris-cad-shell[data-preview-depth='true'] .iris-workspace {
+  box-shadow:
+    inset 0 0 0 1px rgba(29, 29, 31, 0.055),
+    inset 0 8px 18px rgba(29, 29, 31, 0.075),
+    inset 7px 0 16px rgba(29, 29, 31, 0.035),
+    inset -7px 0 16px rgba(29, 29, 31, 0.025),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.94);
+}
+
+/* A pale technical work surface gives the real 3D canvas depth without
+   turning it into another grey information panel. The WebGL canvas is
+   transparent in Iris mode, so this same surface is visible while it loads. */
+.iris-preview-surface,
+.iris-three-scene,
+.iris-preview-loading-overlay {
+  background:
+    radial-gradient(
+      ellipse 66% 61% at 50% 42%,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(253, 253, 254, 0.97) 32%,
+      rgba(244, 244, 246, 0.72) 63%,
+      rgba(236, 236, 239, 0) 100%
+    ),
+    linear-gradient(135deg, #fbfbfc 0%, #ececef 100%);
+}
+
+.iris-three-scene canvas {
+  background: transparent !important;
+}
+
+.iris-preview-loading-overlay {
+  z-index: 5;
+}
+
+/* The viewer controls remain connected to the live R3F camera.  This shell is
+   deliberately quiet so the model—not a second toolbar—keeps visual priority. */
+.iris-viewer-projection {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(29, 29, 31, 0.09);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 3px 10px rgba(29, 29, 31, 0.1);
+}
+
+.iris-viewer-tool {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  padding: 0;
+  background: transparent;
+  color: #6e6e73;
+  cursor: pointer;
+}
+
+.iris-viewer-tool:hover,
+.iris-viewer-tool[data-active='true'] {
+  background: #ececef;
+  color: var(--iris-ink);
+}
+
+.iris-viewer-tool svg {
+  width: 15px;
+  height: 15px;
+}
+
+.iris-viewer-fit {
+  margin-left: 5px;
+  border: 1px solid rgba(29, 29, 31, 0.09);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 3px 10px rgba(29, 29, 31, 0.1);
+}
+
+.iris-workspace::before {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72%;
+  height: 44%;
+  content: '';
+  transform: translate(-50%, -7%) perspective(500px) rotateX(64deg);
+  transform-origin: center;
+  background-image:
+    linear-gradient(rgba(29, 29, 31, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29, 29, 31, 0.055) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse, #000 32%, transparent 72%);
+  pointer-events: none;
+}
+
+.iris-cad-shell[data-creation='true'] .iris-workspace::before {
+  content: none;
+}
+
+.iris-preview-header {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  left: 16px;
+  right: 14px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--iris-secondary);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.iris-preview-header__title,
+.iris-preview-header__action {
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.iris-preview-header__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iris-preview-export {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(29, 29, 31, 0.09);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 10px rgba(29, 29, 31, 0.1);
+}
+
+.iris-preview-export__primary,
+.iris-preview-export__menu {
+  height: 32px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 9px;
+  color: var(--iris-ink);
+  font-size: 14px;
+}
+
+.iris-preview-export__primary {
+  gap: 6px;
+}
+
+.iris-preview-export__primary svg,
+.iris-preview-export__menu svg {
+  width: 14px;
+  height: 14px;
+}
+
+.iris-preview-export__menu {
+  width: 30px;
+  border-left: 1px solid rgba(29, 29, 31, 0.08);
+  padding: 0;
+}
+
+.iris-preview-export__primary:hover,
+.iris-preview-export__menu:hover {
+  background: #f0f0f2;
+}
+
+.iris-preview-export__dropdown {
+  min-width: 190px;
+  border-color: #dedee3 !important;
+  border-radius: 10px;
+  background: #fbfbfd !important;
+  color: var(--iris-ink) !important;
+  box-shadow: 0 12px 28px rgba(29, 29, 31, 0.14);
+}
+
+.iris-preview-export__option {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  background: #fbfbfd !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-preview-export__option:focus,
+.iris-preview-export__option:hover {
+  background: #f0f0f2 !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-preview-export__option small {
+  overflow: hidden;
+  color: var(--iris-secondary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iris-preview-export__option svg {
+  width: 14px;
+  height: 14px;
+}
+
+.iris-cad-viewport {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.iris-cad-viewport > * {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.iris-preview-toolbar {
+  position: absolute;
+  z-index: 5;
+  left: 18px;
+  bottom: 17px;
+}
+
+.iris-inspector {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow:
+    0 12px 30px rgba(29, 29, 31, 0.1),
+    0 3px 9px rgba(29, 29, 31, 0.055);
+}
+
+/* The legacy viewer keeps dark fallback classes on its state containers.
+   Inside the Iris workspace the panel, every viewer state, and the canvas
+   must read as one white preview surface. */
+.iris-cad-viewport > .bg-adam-neutral-700,
+.iris-cad-viewport > .bg-adam-bg-secondary-dark {
+  background: #fff !important;
+}
+
+.iris-inspector-tabs {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 13px 13px 0;
+  border-bottom: 1px solid var(--iris-line);
+}
+
+.iris-inspector-tab {
+  position: relative;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--iris-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: color 160ms ease;
+}
+
+.iris-inspector-tab:hover,
+.iris-inspector-tab[aria-selected='true'] {
+  color: var(--iris-ink);
+}
+
+.iris-inspector-tab[aria-selected='true']::after {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--iris-purple);
+  content: '';
+}
+
+.iris-agent-tab-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.iris-model-tab-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.iris-model-tab-label svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.7;
+}
+
+.iris-agent-tab-logo {
+  width: 20px;
+  height: 20px;
+  filter: grayscale(1) saturate(0) contrast(1.15);
+  opacity: 0.72;
+}
+
+.iris-inspector-panel {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.iris-inspector-panel--agent {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.iris-inspector-panel--agent .iris-chat-scroll {
+  min-height: 0;
+}
+
+.iris-inspector-panel[hidden] {
+  display: none;
+}
+
+.iris-cad-viewport > .iris-settings-page {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Phase 5 — retain the established chat controls and state machines, but
+   translate the existing dark legacy primitives into the Iris white-panel
+   language only when they live in the Agent inspector. */
+.iris-inspector {
+  color: var(--iris-ink);
+}
+
+.iris-inspector .iris-chat-scroll {
+  background: linear-gradient(180deg, #fff 0%, #fbfbfd 100%);
+}
+
+.iris-inspector .iris-chat-scroll > div > div > .sticky {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), transparent);
+}
+
+.iris-inspector .iris-user-message > div:first-child > div,
+.iris-inspector .iris-assistant-message__copy,
+.iris-inspector .iris-tool-block,
+.iris-inspector .bg-adam-neutral-900,
+.iris-inspector [class*='bg-adam-neutral-950'],
+.iris-inspector [class*='bg-adam-neutral-800'],
+.iris-inspector [class*='bg-adam-bg-secondary-dark'],
+.iris-inspector .bg-adam-background-1 {
+  border-color: rgba(29, 29, 31, 0.1) !important;
+  background: #f2f2f5 !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-inspector .iris-user-message__bubble {
+  border: 0 !important;
+  border-radius: 14px 14px 4px 14px;
+  background: #efeff3 !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-inspector .iris-user-message {
+  padding-left: 18px;
+}
+
+.iris-inspector .iris-assistant-message {
+  padding-right: 18px;
+}
+
+.iris-inspector .iris-user-message__bubble textarea {
+  background: transparent !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-inspector .iris-assistant-message > div:first-child > div,
+.iris-inspector .iris-user-message > div:first-child > div:first-child {
+  border-color: rgba(45, 22, 67, 0.18) !important;
+  background: #fff !important;
+}
+
+.iris-inspector .iris-tool-block > button,
+.iris-inspector .iris-tool-block > div,
+.iris-inspector .border-adam-neutral-700,
+.iris-inspector .border-b.border-adam-neutral-700,
+.iris-inspector .border-t.border-adam-neutral-700 {
+  border-color: rgba(29, 29, 31, 0.1) !important;
+}
+
+.iris-inspector .text-adam-text-primary,
+.iris-inspector .text-adam-neutral-100,
+.iris-inspector .text-adam-neutral-50,
+.iris-inspector .text-white {
+  color: var(--iris-ink) !important;
+}
+
+.iris-inspector .text-adam-text-secondary,
+.iris-inspector .text-adam-neutral-200,
+.iris-inspector .text-adam-neutral-300,
+.iris-inspector .text-adam-neutral-400,
+.iris-inspector .text-adam-neutral-500,
+.iris-inspector .text-gray-400 {
+  color: var(--iris-secondary) !important;
+}
+
+.iris-inspector .iris-chat-title {
+  background: transparent !important;
+  color: #3f3f44 !important;
+}
+
+.iris-inspector .iris-chat-title:hover {
+  background: #ececef !important;
+  color: #29292d !important;
+}
+
+.iris-inspector .iris-chat-title:active {
+  background: #dedee3 !important;
+  color: #1d1d1f !important;
+}
+
+.iris-inspector .iris-chat-title-input {
+  border-bottom-color: #8e8e93 !important;
+  background: transparent !important;
+  color: #29292d !important;
+  caret-color: #2d1643;
+}
+
+.iris-inspector .iris-chat-title-input:focus {
+  border-bottom-color: #5f5f65 !important;
+  color: #1d1d1f !important;
+}
+
+.iris-inspector .iris-chat-title-input::selection {
+  background: rgba(45, 22, 67, 0.18);
+  color: #1d1d1f;
+}
+
+.iris-inspector .iris-tool-block pre,
+.iris-inspector .iris-tool-block code,
+.iris-inspector .chat-markdown code {
+  color: #4b4b52;
+  font-family:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-ligatures: none;
+}
+
+.iris-inspector .iris-tool-block__title {
+  color: #1d1d1f !important;
+}
+
+.iris-inspector .chat-markdown :not(pre) > code {
+  color: #1d1d1f !important;
+  font-family:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-ligatures: none;
+  font-weight: 500;
+}
+
+.iris-inspector .iris-assistant-final {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.iris-tool-block__footer {
+  border-top: 1px solid rgba(29, 29, 31, 0.1);
+}
+
+.iris-inspection-row {
+  background: #fff;
+  color: var(--iris-ink);
+}
+
+.iris-inspection-row summary {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  color: var(--iris-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  list-style: none;
+}
+
+.iris-inspection-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.iris-inspection-row summary > span:first-child {
+  color: var(--iris-ink);
+  font-weight: 500;
+}
+
+.iris-inspection-row summary > span:nth-child(2) {
+  margin-left: auto;
+}
+
+.iris-inspection-row summary svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 160ms ease;
+}
+
+.iris-inspection-row[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.iris-inspection-row--loading {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 11px;
+  color: var(--iris-secondary);
+  font-size: 12px;
+}
+
+.iris-inspection-row--loading > span:first-child {
+  color: var(--iris-ink);
+  font-weight: 500;
+}
+
+.iris-inspection-row__preview {
+  width: 100%;
+  display: grid;
+  gap: 7px;
+  border: 0;
+  border-top: 1px solid rgba(29, 29, 31, 0.08);
+  padding: 10px 11px 11px;
+  background: #f5f5f7;
+  color: var(--iris-secondary);
+  cursor: zoom-in;
+  font-size: 11px;
+  text-align: left;
+}
+
+.iris-inspection-row__preview img {
+  border: 1px solid rgba(29, 29, 31, 0.08);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.iris-inspection-row__preview:hover img {
+  border-color: rgba(45, 22, 67, 0.28);
+}
+
+.iris-inspector .iris-tool-block .iris-seven-view-thumb {
+  position: relative;
+  display: block;
+  margin: 6px 2px 6px 0;
+  border: 1px solid rgba(29, 29, 31, 0.1);
+  border-radius: 7px;
+  background: #f5f5f7;
+  box-shadow: 0 1px 2px rgba(29, 29, 31, 0.05);
+  overflow: hidden;
+}
+
+.iris-inspector .iris-tool-block .iris-seven-view-thumb__label {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  border-radius: 4px;
+  padding: 1px 3px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1d1d1f;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.iris-inspector .iris-tool-block .iris-seven-view-thumb:hover {
+  border-color: rgba(45, 22, 67, 0.32);
+  background: #fff;
+}
+
+.iris-seven-view-dialog {
+  border: 1px solid rgba(29, 29, 31, 0.12) !important;
+  border-radius: 18px !important;
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+  box-shadow: 0 18px 48px rgba(29, 29, 31, 0.16) !important;
+}
+
+.iris-seven-view-dialog .text-adam-neutral-50 {
+  color: #1d1d1f !important;
+}
+
+.iris-inspector .iris-chat-composer {
+  border-top: 1px solid rgba(29, 29, 31, 0.08);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.iris-inspector .iris-chat-composer .iris-composer__surface {
+  background: #f6f6f8 !important;
+}
+
+.iris-inspector .iris-chat-composer [class*='bg-adam-neutral-800'],
+.iris-inspector .iris-chat-composer [class*='bg-adam-neutral-700'] {
+  background-color: #ececef !important;
+}
+
+.iris-inspector
+  .iris-chat-composer
+  .iris-composer__toolbar
+  > div:last-child
+  > button:last-child {
+  background: var(--iris-purple) !important;
+  color: #fff !important;
+}
+
+.iris-inspector
+  .iris-chat-composer
+  .iris-composer__toolbar
+  > div:last-child
+  > button:last-child
+  svg {
+  color: #fff !important;
+}
+
+.iris-inspector .iris-chat-scroll button,
+.iris-inspector .iris-assistant-message button {
+  border-color: rgba(29, 29, 31, 0.1);
+  color: var(--iris-secondary);
+}
+
+.iris-inspector .iris-chat-scroll button:hover,
+.iris-inspector .iris-assistant-message button:hover {
+  background: rgba(29, 29, 31, 0.06);
+  color: var(--iris-ink);
+}
+
+.iris-inspector .iris-assistant-message,
+.iris-inspector .iris-assistant-message__copy,
+.iris-inspector .iris-tool-block,
+.iris-inspector .iris-tool-block__footer,
+.iris-inspector .iris-inspection-row {
+  max-width: none;
+  overflow: visible;
+}
+
+.iris-inspector .iris-tool-block__footer {
+  min-width: 0;
+}
+
+.iris-inspector .iris-tool-block summary,
+.iris-inspector .iris-tool-block__footer span,
+.iris-inspector .iris-assistant-message p,
+.iris-inspector .iris-assistant-message li {
+  overflow-wrap: anywhere;
+}
+
+.iris-empty-slot {
+  width: 100%;
+  height: 100%;
+}
+
+/* Phase 7 — Model is deliberately a small, task-focused control surface.
+   Colors, appearance controls, and downloads stay out of this tab. */
+.iris-model-panel {
+  width: 100%;
+  height: 100%;
+  color: var(--iris-ink);
+  background: #fbfbfd;
+}
+
+.iris-model-panel__content {
+  display: grid;
+  gap: 18px;
+  padding: 18px 16px 24px;
+}
+
+.iris-model-section {
+  border-bottom: 1px solid rgba(29, 29, 31, 0.1);
+  padding-bottom: 14px;
+}
+
+.iris-model-section__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--iris-ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.iris-model-section__trigger small {
+  margin-left: 5px;
+  color: var(--iris-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.iris-model-section__trigger > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--iris-secondary);
+  transition: transform 160ms ease;
+}
+
+.iris-model-section__trigger > svg[data-open='true'] {
+  transform: rotate(180deg);
+}
+
+.iris-model-section__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.iris-model-reset {
+  min-height: 28px;
+  margin-top: 12px;
+  padding: 0 8px !important;
+  color: var(--iris-secondary) !important;
+  font-size: 12px !important;
+}
+
+.iris-model-reset:hover {
+  background: #ececef !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-model-reset svg {
+  width: 13px;
+  height: 13px;
+  margin-right: 5px;
+}
+
+.iris-model-panel__notice,
+.iris-model-panel__empty {
+  margin: 0;
+  border: 1px solid rgba(29, 29, 31, 0.1);
+  border-radius: 10px;
+  padding: 10px 11px;
+  background: #f2f2f5;
+  color: var(--iris-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.iris-model-components__actions {
+  display: flex;
+  gap: 2px;
+  margin: 10px 0 8px;
+}
+
+.iris-model-components__actions button {
+  height: 26px;
+  padding: 0 7px;
+  color: var(--iris-secondary);
+  font-size: 11px;
+}
+
+.iris-model-components__actions button:hover {
+  background: #ececef;
+  color: var(--iris-ink);
+}
+
+.iris-model-components__list {
+  display: grid;
+  gap: 6px;
+}
+
+.iris-model-component {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(29, 29, 31, 0.08);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #f6f6f8;
+  cursor: pointer;
+}
+
+.iris-model-component > span:first-child {
+  min-width: 0;
+}
+
+.iris-model-component > span:first-child > span,
+.iris-model-component > span:first-child > small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iris-model-component > span:first-child > span {
+  color: var(--iris-ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.iris-model-component > span:first-child > small {
+  margin-top: 2px;
+  color: var(--iris-secondary);
+  font-size: 10px;
+}
+
+.iris-model-component__visibility {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--iris-secondary);
+}
+
+.iris-model-component__visibility svg {
+  width: 14px;
+  height: 14px;
+}
+
+.iris-model-panel .text-adam-text-primary,
+.iris-model-panel .text-adam-neutral-100,
+.iris-model-panel .text-adam-neutral-50 {
+  color: var(--iris-ink) !important;
+}
+
+.iris-model-panel .text-adam-text-secondary,
+.iris-model-panel .text-adam-neutral-300,
+.iris-model-panel .text-adam-neutral-400 {
+  color: var(--iris-secondary) !important;
+}
+
+.iris-model-panel [class*='bg-adam-neutral-800'],
+.iris-model-panel [class*='bg-adam-neutral-900'] {
+  border-color: rgba(29, 29, 31, 0.1) !important;
+  background-color: #f2f2f5 !important;
+}
+
+.iris-model-panel [class*='bg-sky-500'] {
+  background-color: rgba(45, 22, 67, 0.12) !important;
+}
+
+.iris-model-panel [class*='bg-sky-300'],
+.iris-model-panel [class*='bg-sky-200'] {
+  background-color: rgba(45, 22, 67, 0.2) !important;
+}
+
+.iris-model-panel button[role='switch'] {
+  width: 40px;
+  height: 22px;
+  padding: 2px;
+  background: #c8c8ce !important;
+  box-shadow: inset 0 0 6px rgba(29, 29, 31, 0.14);
+}
+
+.iris-model-panel button[role='switch'][data-state='checked'] {
+  background: var(--iris-purple) !important;
+}
+
+.iris-model-panel button[role='switch'] > span {
+  width: 18px;
+  height: 18px;
+}
+
+.iris-model-panel button[role='switch'][data-state='checked'] > span {
+  transform: translateX(18px);
+}
+
+.iris-prompt-page {
+  --iris-ink: #1d1d1f;
+  --iris-secondary: #6e6e73;
+  --iris-line: #dedee3;
+  --iris-purple: #2d1643;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: transparent;
+  color: var(--iris-ink);
+  font-family:
+    'Geist Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.iris-prompt-surface {
+  min-height: 100%;
+  background: transparent;
+}
+
+.iris-shell-stage .iris-prompt-page,
+.iris-shell-stage .iris-prompt-surface {
+  min-height: 100%;
+}
+
+.iris-prompt-main {
+  min-height: 100%;
+  justify-content: center;
+  padding: 48px clamp(20px, 5vw, 72px) 26px;
+}
+
+.iris-prompt-heading {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: min(620px, 82%);
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.iris-prompt-heading > div {
+  width: 100%;
+}
+
+.iris-prompt-title {
+  margin: 0;
+  color: transparent;
+  background: linear-gradient(
+    92deg,
+    #b348d0 0%,
+    #d66fc2 38%,
+    #c270dc 67%,
+    #8957d0 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  transition-duration: 1.55s !important;
+}
+
+.iris-prompt-subtitle {
+  margin: 5px 0 0;
+  color: #b5b5ba;
+  font-size: clamp(25px, 4vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  opacity: 0;
+}
+
+.iris-prompt-subtitle__typed {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.iris-prompt-heading.is-loaded .iris-prompt-subtitle {
+  opacity: 1;
+}
+
+.iris-prompt-subtitle__typed.is-typing {
+  border-right: 1px solid #89898f;
+  animation: iris-prompt-caret 720ms step-end infinite;
+}
+
+@keyframes iris-prompt-caret {
+  50% {
+    border-right-color: transparent;
+  }
+}
+
+.iris-prompt-grid-stage {
+  position: relative;
+  width: min(440px, 72%);
+  height: 144px;
+  margin: 26px auto 0;
+  perspective: 187px;
+  pointer-events: none;
+}
+
+.iris-prompt-grid {
+  position: absolute;
+  inset: -4px -4.4% -28px;
+  transform: rotateX(58deg) translateY(1px);
+  transform-origin: center top;
+  background-image:
+    linear-gradient(rgba(154, 55, 216, 0.48) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(154, 55, 216, 0.48) 1px, transparent 1px);
+  background-size: 20px 20px;
+  mask-image: radial-gradient(
+    ellipse at 50% 23%,
+    #000 14%,
+    rgba(0, 0, 0, 0.8) 43%,
+    transparent 76%
+  );
+  opacity: 0.15;
+}
+
+.iris-prompt-projection {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: -2px;
+  width: 66%;
+  height: 43px;
+  transform: translateX(-50%) perspective(187px) rotateX(58deg);
+  transform-origin: center top;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(158, 73, 178, 0.42) 0%,
+    rgba(158, 73, 178, 0.42) 22%,
+    transparent 72%
+  );
+  filter: blur(14px);
+  opacity: 0.25;
+  box-shadow: 0 14px 33px rgba(158, 73, 178, 0.42);
+}
+
+.iris-prompt-content {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  width: min(760px, calc(100% - 48px));
+  margin-top: 0;
+  transform: translateX(-50%);
+}
+
+.iris-prompt-stack {
+  max-width: 760px;
+  padding-bottom: 0;
+}
+
+.iris-prompt-start-options {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.iris-prompt-start-option {
+  min-height: 32px;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: var(--iris-secondary) !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.iris-prompt-start-option:hover {
+  border-color: transparent !important;
+  background: rgba(29, 29, 31, 0.05) !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-prompt-start-option.is-active {
+  display: none;
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-composer__attachments {
+  border-color: rgba(45, 22, 67, 0.22) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+.iris-composer__surface {
+  overflow: hidden;
+  border: 1px solid rgba(29, 29, 31, 0.12) !important;
+  border-radius: 18px !important;
+  background: #f4f4f5 !important;
+  box-shadow:
+    0 18px 48px rgba(45, 22, 67, 0.09),
+    0 2px 8px rgba(29, 29, 31, 0.04) !important;
+  backdrop-filter: blur(18px);
+}
+
+.iris-composer__surface:focus-within {
+  border-color: rgba(45, 22, 67, 0.38) !important;
+  box-shadow:
+    0 20px 52px rgba(45, 22, 67, 0.12),
+    0 0 0 3px rgba(45, 22, 67, 0.07) !important;
+}
+
+.iris-composer__input-row {
+  min-height: 58px;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 13px 13px 9px;
+}
+
+.iris-composer__mark {
+  display: none;
+}
+
+.iris-composer__textarea {
+  min-height: 38px;
+  background: transparent !important;
+  color: var(--iris-ink) !important;
+  font-size: 14px !important;
+}
+
+.iris-composer__textarea::placeholder {
+  color: #89898f !important;
+}
+
+.iris-composer__toolbar {
+  min-height: 46px;
+  border-color: transparent !important;
+  padding: 10px 12px;
+}
+
+.iris-composer__toolbar button {
+  border-color: transparent !important;
+  background-color: rgba(245, 245, 247, 0.78) !important;
+  color: var(--iris-secondary) !important;
+  box-shadow: none !important;
+}
+
+.iris-composer__toolbar .iris-composer__model-selector {
+  border: 1px solid rgba(29, 29, 31, 0.12) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+}
+
+.iris-composer__toolbar button:hover:not(:disabled) {
+  background-color: #ececef !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-composer__toolbar .iris-composer__attachment-trigger,
+.iris-composer__toolbar
+  .iris-composer__attachment-trigger:hover:not(:disabled) {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--iris-secondary) !important;
+}
+
+.iris-prompt-page .iris-composer__toolbar .iris-composer__attachment-trigger {
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 90ms ease !important;
+}
+
+.iris-prompt-page
+  .iris-composer__toolbar
+  .iris-composer__attachment-trigger:hover:not(:disabled) {
+  background: #e7e7ea !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-inspector .iris-composer__toolbar .iris-composer__attachment-trigger {
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 90ms ease !important;
+}
+
+.iris-inspector
+  .iris-composer__toolbar
+  .iris-composer__attachment-trigger:hover:not(:disabled) {
+  background: #e7e7ea !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-inspector
+  .iris-composer__toolbar
+  .iris-composer__attachment-trigger:active:not(:disabled) {
+  background: #dcdce1 !important;
+  color: var(--iris-ink) !important;
+  transform: scale(0.94);
+}
+
+.iris-inspector
+  .iris-composer__toolbar
+  .iris-composer__attachment-trigger:focus-visible {
+  background: #ececef !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-prompt-page
+  .iris-composer__toolbar
+  .iris-composer__attachment-trigger:active:not(:disabled) {
+  background: #dcdce1 !important;
+  color: var(--iris-ink) !important;
+  transform: scale(0.94);
+}
+
+.iris-prompt-page
+  .iris-composer__toolbar
+  .iris-composer__attachment-trigger:focus-visible {
+  background: #ececef !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-model-selector-menu {
+  border-color: #dedee3 !important;
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+  box-shadow: 0 12px 28px rgba(29, 29, 31, 0.14) !important;
+}
+
+.iris-model-selector-menu .iris-model-selector-option {
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-model-selector-menu .iris-model-selector-option:hover,
+.iris-model-selector-menu .iris-model-selector-option:focus,
+.iris-model-selector-menu .iris-model-selector-option[data-highlighted] {
+  background: #f0f0f2 !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-model-selector-menu
+  .iris-model-selector-option[class*='bg-adam-neutral-800'] {
+  background: #ececef !important;
+}
+
+.iris-model-selector-menu .iris-model-selector-option p {
+  color: var(--iris-secondary) !important;
+}
+
+.iris-composer__toolbar > div:last-child > button:last-child {
+  border-color: var(--iris-purple) !important;
+  background: var(--iris-purple) !important;
+  color: #fff !important;
+}
+
+.iris-composer__toolbar
+  > div:last-child
+  > button:last-child:hover:not(:disabled) {
+  background: #1f102d !important;
+  color: #fff !important;
+}
+
+.iris-prompt-notice-region {
+  min-height: 24px;
+  color: var(--iris-secondary);
+}
+
+.iris-seed-dialog {
+  --iris-ink: #1d1d1f;
+  --iris-secondary: #6e6e73;
+  --iris-line: #dedee3;
+  --iris-purple: #2d1643;
+  border: 1px solid rgba(29, 29, 31, 0.1) !important;
+  border-radius: 20px !important;
+  background: #fbfbfd !important;
+  color: var(--iris-ink) !important;
+  box-shadow: 0 24px 70px rgba(29, 29, 31, 0.2) !important;
+  font-family:
+    'Geist Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.iris-seed-dialog p {
+  color: var(--iris-secondary);
+}
+
+.iris-seed-title {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+}
+
+.iris-seed-dialog button {
+  border-color: var(--iris-line);
+  color: var(--iris-ink);
+}
+
+.iris-seed-dialog button:hover:not(:disabled) {
+  background: rgba(29, 29, 31, 0.06);
+}
+
+.iris-seed-tabs {
+  display: flex;
+  gap: 0 !important;
+  border-bottom: 1px solid var(--iris-line);
+}
+
+.iris-seed-dialog .iris-seed-tab,
+.iris-seed-dialog .iris-seed-tab:hover:not(:disabled) {
+  position: relative;
+  flex: 1;
+  min-height: 44px;
+  justify-content: center;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-seed-dialog .iris-seed-tab.is-active {
+  box-shadow: none;
+}
+
+.iris-seed-tab__label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.iris-seed-dialog .iris-seed-tab.is-active .iris-seed-tab__label::after {
+  position: absolute;
+  right: 0;
+  bottom: -13px;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--iris-purple);
+  content: '';
+}
+
+.iris-seed-dialog .iris-seed-validate,
+.iris-seed-dialog .iris-seed-validate:hover:not(:disabled) {
+  border-color: var(--iris-line) !important;
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-seed-dialog .iris-seed-validate:disabled {
+  background: #f3f3f5 !important;
+  color: #98989e !important;
+}
+
+/* Phase 9: history, sharing and settings use the same quiet, light surfaces
+   as the workspace without changing their existing data and auth flows. */
+.iris-history-page,
+.iris-settings-page {
+  --iris-ink: #1d1d1f;
+  --iris-secondary: #6e6e73;
+  --iris-line: #dedee3;
+  --iris-purple: #2d1643;
+  background: transparent !important;
+  color: var(--iris-ink);
+  font-family:
+    'Geist Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.iris-history-page .bg-adam-background-1,
+.iris-history-page .bg-adam-background-2,
+.iris-settings-page .bg-adam-background-1,
+.iris-settings-page .bg-adam-background-2 {
+  background-color: #fff !important;
+}
+
+.iris-history-page .text-adam-neutral-10,
+.iris-history-page .text-adam-neutral-50,
+.iris-history-page .text-adam-neutral-100,
+.iris-settings-page .text-adam-neutral-50,
+.iris-settings-page .text-adam-neutral-100 {
+  color: var(--iris-ink) !important;
+}
+
+.iris-history-page .text-adam-neutral-200,
+.iris-history-page .text-adam-neutral-300,
+.iris-history-page .text-adam-neutral-400,
+.iris-settings-page .text-adam-neutral-200,
+.iris-settings-page .text-adam-neutral-300 {
+  color: var(--iris-secondary) !important;
+}
+
+.iris-history-page [class*='border-adam-neutral-'],
+.iris-settings-page [class*='border-adam-neutral-'],
+.iris-settings-page [class*='divide-adam-neutral-'] {
+  border-color: var(--iris-line) !important;
+}
+
+.iris-history-page .iris-history-view-indicator {
+  background-color: #ececef !important;
+  box-shadow: none !important;
+}
+
+.iris-history-view-toggle {
+  border-color: var(--iris-line) !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(29, 29, 31, 0.04);
+}
+
+.iris-history-view-toggle__option {
+  color: var(--iris-secondary) !important;
+}
+
+.iris-history-view-toggle__option[aria-pressed='true'] {
+  color: var(--iris-ink) !important;
+}
+
+.iris-history-menu {
+  border: 1px solid var(--iris-line) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+  box-shadow: 0 12px 28px rgba(29, 29, 31, 0.14) !important;
+}
+
+.iris-history-menu [role='menuitem'] {
+  border-radius: 8px;
+  background: transparent !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-history-menu [role='menuitem']:hover,
+.iris-history-menu [role='menuitem']:focus,
+.iris-history-menu [role='menuitem'][data-highlighted] {
+  background: #f0f0f2 !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-history-menu [role='menuitem']:first-child:hover,
+.iris-history-menu [role='menuitem']:first-child:focus,
+.iris-history-menu [role='menuitem']:first-child[data-highlighted] {
+  color: #b42318 !important;
+}
+
+.iris-history-page .iris-history-overflow-trigger,
+.iris-history-page .iris-history-overflow-trigger:hover,
+.iris-history-page .iris-history-overflow-trigger:focus-visible {
+  background: transparent !important;
+  color: var(--iris-secondary) !important;
+  box-shadow: none !important;
+}
+
+.iris-history-page .iris-history-overflow-trigger:hover {
+  background: #ececef !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-history-visual-preview {
+  background: #f1f1f3;
+}
+
+/* Seven-view sheets are fixed at 1024×2048. The ISO tile is the centered
+   512×512 square in the first row, so rendering the source at 200% width and
+   centering it exposes exactly that tile without generating duplicate files. */
+.iris-history-visual-preview__iso {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 200%;
+  max-width: none;
+  height: auto;
+  transform: translateX(-50%);
+}
+
+.iris-history-visual-preview__empty {
+  width: 100%;
+  height: 100%;
+  background: #f1f1f3;
+}
+
+.iris-settings-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 14px -6px;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px;
+  background: transparent;
+  color: var(--iris-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.iris-settings-back:hover {
+  background: #ececef;
+  color: var(--iris-ink);
+}
+
+.iris-settings-back svg {
+  width: 16px;
+  height: 16px;
+}
+
+.iris-history-page .group > a > button {
+  border: 1px solid transparent !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: 0 4px 14px rgba(29, 29, 31, 0.045);
+}
+
+.iris-history-page .group > a > button:hover {
+  border-color: rgba(29, 29, 31, 0.1) !important;
+  background: #fff !important;
+}
+
+.iris-history-page input,
+.iris-settings-page input {
+  border-color: var(--iris-line) !important;
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+  box-shadow: inset 0 1px 2px rgba(29, 29, 31, 0.045) !important;
+}
+
+.iris-history-page input:focus,
+.iris-settings-page input:focus {
+  border-color: rgba(45, 22, 67, 0.42) !important;
+  box-shadow: 0 0 0 3px rgba(45, 22, 67, 0.08) !important;
+}
+
+.iris-settings-page > div {
+  max-width: 672px;
+}
+
+.iris-settings-page section {
+  border-color: var(--iris-line) !important;
+  background: rgba(255, 255, 255, 0.76) !important;
+  box-shadow: 0 6px 18px rgba(29, 29, 31, 0.035);
+}
+
+.iris-settings-page button[role='switch'] {
+  background: #c8c8ce !important;
+}
+
+.iris-settings-page button[role='switch'][data-state='checked'] {
+  background: var(--iris-purple) !important;
+}
+
+.iris-history-dialog,
+.iris-share-popover {
+  border: 1px solid rgba(29, 29, 31, 0.12) !important;
+  border-radius: 18px !important;
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+  box-shadow: 0 18px 48px rgba(29, 29, 31, 0.16) !important;
+}
+
+.iris-history-dialog .text-adam-neutral-100,
+.iris-history-dialog .text-adam-neutral-50 {
+  color: var(--iris-ink) !important;
+}
+
+.iris-history-dialog input {
+  border-color: var(--iris-line) !important;
+  background: #f5f5f7 !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-share-content {
+  color: var(--iris-ink);
+}
+
+.iris-share-content .text-adam-neutral-100 {
+  color: var(--iris-ink) !important;
+}
+
+.iris-share-content .text-adam-text-secondary,
+.iris-share-content .text-adam-neutral-300 {
+  color: var(--iris-secondary) !important;
+}
+
+.iris-share-content .bg-adam-neutral-950 {
+  border: 1px solid var(--iris-line) !important;
+  background: #f5f5f7 !important;
+}
+
+.iris-share-content .bg-adam-neutral-950 > span {
+  color: var(--iris-secondary) !important;
+}
+
+.iris-share-content .bg-adam-neutral-950 button {
+  border: 1px solid rgba(29, 29, 31, 0.12) !important;
+  background: #fff !important;
+  color: var(--iris-ink) !important;
+}
+
+.iris-share-content__social {
+  border: 1px solid var(--iris-line) !important;
+  background: #fff !important;
+  color: var(--iris-secondary) !important;
+}
+
+.iris-seed-dialog textarea {
+  border-color: var(--iris-line);
+  background: #f5f5f7;
+  color: var(--iris-ink);
+}
+
+.iris-seed-dialog .iris-seed-code-input {
+  font-family:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-ligatures: none;
+  line-height: 1.55;
+}
+
+.iris-mobile-controls,
+.iris-mobile-sheet {
+  display: none;
+}
+
+.iris-mobile-navigation-trigger {
+  display: none;
+}
+
+.iris-navigation-sheet {
+  --iris-shell: #f5f5f7;
+  --iris-panel: #fbfbfd;
+  --iris-ink: #1d1d1f;
+  --iris-secondary: #6e6e73;
+  --iris-line: #dedee3;
+  --iris-purple: #2d1643;
+  background: var(--iris-shell);
+  color: var(--iris-ink);
+  font-family:
+    'Geist Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.iris-navigation-sheet *,
+.iris-navigation-sheet *::before,
+.iris-navigation-sheet *::after {
+  box-sizing: border-box;
+}
+
+.iris-navigation-sheet button:focus-visible,
+.iris-navigation-sheet [tabindex]:focus-visible {
+  outline: 3px solid rgba(29, 29, 31, 0.22);
+  outline-offset: 2px;
+}
+
+.iris-navigation-sheet .iris-sidebar {
+  width: 100%;
+  height: 100%;
+  border-right: 0;
+}
+
+@media (max-width: 1023px) {
+  .iris-shell-stage {
+    padding: 0;
+  }
+
+  .iris-cad-shell {
+    height: 100dvh;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .iris-cad-shell[data-creation='true'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iris-mobile-controls {
+    position: absolute;
+    z-index: 10;
+    right: 14px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    display: flex;
+    gap: 8px;
+    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 14px;
+    background: rgba(245, 245, 247, 0.86);
+    box-shadow: 5px 5px 13px rgba(174, 174, 181, 0.3);
+    backdrop-filter: blur(16px);
+  }
+
+  .iris-mobile-navigation-trigger {
+    position: fixed;
+    z-index: 30;
+    top: max(14px, env(safe-area-inset-top));
+    left: 14px;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 12px;
+    background: rgba(245, 245, 247, 0.86);
+    color: var(--iris-ink);
+    box-shadow: 4px 4px 11px rgba(174, 174, 181, 0.3);
+    backdrop-filter: blur(16px);
+    cursor: pointer;
+  }
+
+  .iris-mobile-navigation-trigger svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .iris-mobile-controls button {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 10px;
+    padding: 0 11px;
+    background: transparent;
+    color: var(--iris-secondary);
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .iris-mobile-controls button:hover {
+    background: rgba(29, 29, 31, 0.06);
+    color: var(--iris-ink);
+  }
+
+  .iris-mobile-controls svg,
+  .iris-mobile-sheet__close svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .iris-mobile-sheet {
+    position: fixed;
+    z-index: 60;
+    inset: 0;
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .iris-mobile-sheet[data-open='true'] {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .iris-mobile-sheet__backdrop {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgba(29, 29, 31, 0.2);
+    opacity: 0;
+    transition: opacity 180ms ease;
+  }
+
+  .iris-mobile-sheet[data-open='true'] .iris-mobile-sheet__backdrop {
+    opacity: 1;
+  }
+
+  .iris-mobile-sheet__surface {
+    position: absolute;
+    inset: auto 8px 8px;
+    height: min(78dvh, 680px);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 22px;
+    background: var(--iris-panel);
+    box-shadow: 0 -12px 40px rgba(29, 29, 31, 0.18);
+    transform: translateY(calc(100% + 16px));
+    transition: transform 220ms ease;
+  }
+
+  .iris-mobile-sheet[data-open='true'] .iris-mobile-sheet__surface {
+    transform: translateY(0);
+  }
+
+  .iris-mobile-sheet__close {
+    position: absolute;
+    z-index: 5;
+    top: 14px;
+    right: 14px;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(29, 29, 31, 0.06);
+    color: var(--iris-secondary);
+    cursor: pointer;
+  }
+
+  .iris-mobile-sheet__close:hover {
+    color: var(--iris-ink);
+  }
+
+  .iris-mobile-sheet .iris-inspector {
+    width: 100%;
+    height: 100%;
+    border-left: 0;
+  }
+
+  .iris-mobile-sheet .iris-inspector-tabs {
+    padding-right: 52px;
+  }
+}
+
+@media (max-width: 640px) {
+  .iris-prompt-main {
+    padding: 72px 16px 18px;
+  }
+
+  .iris-prompt-heading {
+    top: 38%;
+    width: 92%;
+  }
+
+  .iris-prompt-title {
+    font-size: 32px;
+  }
+
+  .iris-prompt-subtitle {
+    font-size: 24px;
+  }
+
+  .iris-prompt-grid-stage {
+    width: 78%;
+    height: 110px;
+    margin-top: 20px;
+  }
+
+  .iris-prompt-content {
+    bottom: 16px;
+    width: calc(100% - 24px);
+  }
+
+  .iris-prompt-start-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iris-composer__mark {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iris-cad-shell *,
+  .iris-cad-shell *::before,
+  .iris-cad-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .iris-layout-loading svg {
+    animation: none;
+  }
+
+  .iris-prompt-subtitle {
+    opacity: 1;
+  }
+
+  .iris-prompt-subtitle__typed.is-typing {
+    animation: none;
+  }
+}

@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+migration-backups/
+database-backups/
+dist
+dist-ssr
+.output
+,output
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+*.tsbuildinfo
+.env
+
+.vercel
+
+# other secret files
+.env.local
+.env.langfuse
+
+# Pyodide wheels under public/vendor/simplecadapi are production browser
+# runtime assets and must remain tracked so Cloud Build ships CAD execution.
+
+skills-lock.json

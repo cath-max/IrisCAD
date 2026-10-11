@@ -1,0 +1,494 @@
+import { modelFilename } from '@shared/modelNaming';
+import { ChatTitle } from '@/components/chat/ChatTitle';
+import { MessageBubble } from '@/components/chat/MessageBubble';
+import { IrisModelPanel } from '@/components/parameter/IrisModelPanel';
+import { ParameterSheetContent } from '@/components/parameter/ParameterSheetContent';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import Loader from '@/components/viewer/Loader';
+import { ThreeScene } from '@/components/viewer/ThreeScene';
+import { PreviewExportControl } from '@/components/viewer/PreviewExportControl';
+import { ConversationContext } from '@/contexts/ConversationContext';
+import { messageRowToChatMessage } from '@/lib/aiMessages';
+import { supabase } from '@/lib/supabase';
+import { updateParameter } from '@/lib/utils';
+import parseParameters from '@shared/parseParameters';
+import type { AppUIMessage } from '@shared/chatAi';
+import { isParametricArtifact } from '@shared/parametricParts';
+import Tree from '@shared/Tree';
+import type {
+  Conversation,
+  Message,
+  Parameter,
+  ParametricArtifact,
+} from '@shared/types';
+import { useQuery } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
+import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { BufferGeometry, Group } from 'three';
+import {
+  exportResultBlob,
+  renderSimpleCadAssemblyComponentMeshes,
+  renderSimpleCadMesh,
+  reopenSimpleCadSession,
+  runSimpleCadCode,
+} from '@/worker/simpleCadToolWorker';
+import {
+  buildSimpleCadAssemblyGroup,
+  buildSimpleCadBufferGeometry,
+  disposeSimpleCadAssemblyGroup,
+  isRenderableSimpleCadMesh,
+} from '@/utils/simpleCadMeshGeometry';
+import type { StepExporter } from '@/utils/downloadUtils';
+import { ConversationView } from './ConversationView';
+
+type ActivePreview = {
+  type: 'artifact';
+  messageId: string;
+  artifact: ParametricArtifact;
+} | null;
+
+/**
+ * Read-only sibling of `EditorView`. Renders a public conversation tree
+ * with the same layout chrome as the editor (chat / preview / parameters
+ * panels), but mounts NO chat instance, no `useChat`, no mutations.
+ *
+ * Branch navigation works locally: the viewer can flip between sibling
+ * branches by walking a local `leafId` state, which doesn't touch the
+ * DB's `current_message_leaf_id` (they don't own the conversation).
+ * Parameters can be tweaked for exploration but the changes stay in
+ * memory.
+ */
+export default function ShareView() {
+  const { id: conversationId } = useParams({ from: '/_layout/share/$id' });
+
+  const { data: conversation, isLoading: isConversationLoading } = useQuery({
+    queryKey: ['conversation', conversationId],
+    enabled: !!conversationId,
+    queryFn: async () => {
+      if (!conversationId) throw new Error('Conversation ID is required');
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('id', conversationId)
+        .eq('type', 'parametric')
+        .limit(1)
+        .single()
+        .overrideTypes<Conversation>();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: messages = [], isLoading: areMessagesLoading } = useQuery({
+    queryKey: ['share-messages', conversationId],
+    enabled: !!conversationId && !!conversation,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .overrideTypes<Message[]>();
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  if (isConversationLoading || areMessagesLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-adam-bg-secondary-dark text-adam-text-primary">
+        <Loader2 className="h-10 w-10 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!conversation) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center bg-adam-bg-secondary-dark text-adam-text-primary">
+        <span className="text-2xl font-medium">404</span>
+        <span className="text-sm">Conversation not found</span>
+      </div>
+    );
+  }
+
+  return (
+    <ConversationContext.Provider value={{ conversation }}>
+      <ConversationShare conversation={conversation} messages={messages} />
+    </ConversationContext.Provider>
+  );
+}
+
+interface ConversationShareProps {
+  conversation: Conversation;
+  messages: Message[];
+}
+
+function ConversationShare({ conversation, messages }: ConversationShareProps) {
+  // Local leaf — the share viewer can flip between branches without
+  // touching `conversations.current_message_leaf_id` in the DB.
+  const [localLeafId, setLocalLeafId] = useState<string>(
+    conversation.current_message_leaf_id ?? messages.at(-1)?.id ?? '',
+  );
+  // Snap the local leaf to the conversation's current leaf when the DB
+  // pointer changes (e.g. a refetch arrives). Only fires when the
+  // upstream leaf actually changes — preserves the viewer's manual
+  // branch nav otherwise.
+  const prevLeafRef = useRef(conversation.current_message_leaf_id);
+  useEffect(() => {
+    if (prevLeafRef.current === conversation.current_message_leaf_id) return;
+    prevLeafRef.current = conversation.current_message_leaf_id;
+    if (conversation.current_message_leaf_id) {
+      setLocalLeafId(conversation.current_message_leaf_id);
+    }
+  }, [conversation.current_message_leaf_id]);
+
+  const chatMessages = useMemo(
+    () => messages.map(messageRowToChatMessage),
+    [messages],
+  );
+  const messageTree = useMemo(() => new Tree(chatMessages), [chatMessages]);
+  const branch = useMemo(
+    () => messageTree.getPath(localLeafId),
+    [messageTree, localLeafId],
+  );
+
+  // Preview / parameters state — same shape as EditorView but with no
+  // server-side persistence.
+  const [activePreview, setActivePreview] = useState<ActivePreview>(null);
+  const [parameters, setParameters] = useState<Parameter[]>([]);
+  const [geometry, setGeometry] = useState<BufferGeometry | null>(null);
+  const [assemblyGroup, setAssemblyGroup] = useState<Group | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [stepExporter, setStepExporter] = useState<StepExporter | null>(null);
+  const [stlExporter, setStlExporter] = useState<StepExporter | null>(null);
+  const [mobilePreviewVersion, setMobilePreviewVersion] = useState(0);
+  const baseCodeRef = useRef<string | null>(null);
+  const sessionId = `share-${conversation.id}`;
+
+  // Auto-switch the preview pane to the latest artifact in the
+  // current branch when it changes.
+  const lastAutoAppliedPreviewKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const latest = findLatestPreview(branch);
+    if (!latest) return;
+    const key = `artifact:${latest.messageId}:${latest.artifact.code.length}`;
+    if (lastAutoAppliedPreviewKeyRef.current === key) return;
+    lastAutoAppliedPreviewKeyRef.current = key;
+    baseCodeRef.current = latest.artifact.code;
+    setParameters(parseParameters(latest.artifact.code));
+    setActivePreview(latest);
+    setMobilePreviewVersion((version) => version + 1);
+  }, [branch]);
+
+  const handleViewArtifact = useCallback(
+    (artifact: ParametricArtifact, messageId: string) => {
+      baseCodeRef.current = artifact.code;
+      setParameters(parseParameters(artifact.code));
+      setActivePreview({ type: 'artifact', messageId, artifact });
+      setMobilePreviewVersion((version) => version + 1);
+    },
+    [],
+  );
+  const changeParameters = useCallback(
+    (nextParameters: Parameter[]) => {
+      if (!baseCodeRef.current || activePreview?.type !== 'artifact') return;
+      let nextCode = baseCodeRef.current;
+      for (const parameter of nextParameters) {
+        nextCode = updateParameter(nextCode, parameter);
+      }
+      setParameters(nextParameters);
+      setActivePreview({
+        ...activePreview,
+        artifact: {
+          ...activePreview.artifact,
+          code: nextCode,
+        },
+      });
+    },
+    [activePreview],
+  );
+
+  useEffect(() => {
+    const code = activePreview?.artifact.code;
+    if (!code) return;
+    let cancelled = false;
+
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setStepExporter(() => null);
+    setStlExporter(() => null);
+    setGeometry((previous) => {
+      previous?.dispose();
+      return null;
+    });
+    setAssemblyGroup((previous) => {
+      disposeSimpleCadAssemblyGroup(previous);
+      return null;
+    });
+
+    void (async () => {
+      try {
+        await reopenSimpleCadSession(sessionId);
+        const result = await runSimpleCadCode(code, sessionId);
+        if (!result.ok) {
+          throw new Error(
+            result.error?.what_happened ||
+              result.stderr ||
+              'SimpleCADAPI execution failed',
+          );
+        }
+
+        if (result.result_type === 'Assembly') {
+          const meshes =
+            await renderSimpleCadAssemblyComponentMeshes(sessionId);
+          if (!meshes.ok) {
+            throw new Error(
+              meshes.error?.what_happened || 'Assembly preview failed',
+            );
+          }
+          const visibility = Object.fromEntries(
+            meshes.components.map((component) => [
+              component.component_id,
+              true,
+            ]),
+          );
+          const nextGroup = buildSimpleCadAssemblyGroup(meshes, visibility);
+          if (cancelled) {
+            disposeSimpleCadAssemblyGroup(nextGroup);
+            return;
+          }
+          setAssemblyGroup(nextGroup);
+        } else {
+          const mesh = await renderSimpleCadMesh(sessionId);
+          if (!isRenderableSimpleCadMesh(mesh)) {
+            throw new Error(
+              mesh.error?.what_happened || 'Model preview failed',
+            );
+          }
+          const nextGeometry = buildSimpleCadBufferGeometry(mesh);
+          if (cancelled) {
+            nextGeometry.dispose();
+            return;
+          }
+          setGeometry(nextGeometry);
+        }
+
+        if (!cancelled) {
+          setStepExporter(() => () => exportResultBlob(sessionId, 'step'));
+          setStlExporter(() =>
+            result.result_type === 'Assembly'
+              ? null
+              : () => exportResultBlob(sessionId, 'stl'),
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPreviewError(
+            error instanceof Error ? error.message : 'Preview failed',
+          );
+        }
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePreview?.artifact.code, sessionId]);
+
+  useEffect(
+    () => () => {
+      geometry?.dispose();
+      disposeSimpleCadAssemblyGroup(assemblyGroup);
+    },
+    [geometry, assemblyGroup],
+  );
+
+  const hasArtifact =
+    activePreview?.type === 'artifact' && parameters.length > 0;
+
+  return (
+    <ConversationView
+      hasParameters={hasArtifact}
+      previewActionSlot={
+        <PreviewExportControl
+          filenameBase={modelFilename(
+            activePreview?.type === 'artifact'
+              ? activePreview.artifact.title
+              : undefined,
+            conversation.title,
+          )}
+          stepExporter={stepExporter}
+          stlExporter={stlExporter}
+          code={
+            activePreview?.type === 'artifact'
+              ? activePreview.artifact.code
+              : undefined
+          }
+        />
+      }
+      mobilePreviewKey={
+        activePreview ? `artifact:${activePreview.messageId}` : null
+      }
+      mobilePreviewVersion={mobilePreviewVersion}
+      chatPanelSlot={
+        <>
+          <div className="flex w-full items-center justify-between bg-transparent p-3 md:pl-12">
+            <div className="min-w-0 flex-1">
+              <ChatTitle />
+            </div>
+          </div>
+
+          <ScrollArea className="relative w-full max-w-none flex-1 self-center px-3 py-0 md:min-h-0 md:p-4">
+            <div className="pointer-events-none sticky left-0 top-0 z-50 h-3 bg-gradient-to-b from-adam-bg-secondary-dark/90 to-transparent md:hidden" />
+            <div className="mx-auto flex max-w-3xl flex-col gap-4 pb-6 md:pb-0">
+              {branch.map((node) => (
+                <MessageBubble
+                  key={node.id}
+                  message={node}
+                  isLoading={false}
+                  onSelectLeaf={setLocalLeafId}
+                  onViewArtifact={(artifact) =>
+                    handleViewArtifact(artifact, node.id)
+                  }
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        </>
+      }
+      previewSlot={
+        <div className="iris-preview-surface flex h-full w-full items-center justify-center">
+          {previewLoading ? (
+            <Loader showLoadingText />
+          ) : geometry || assemblyGroup ? (
+            <ThreeScene
+              previewKey={
+                activePreview?.type === 'artifact'
+                  ? `${activePreview.messageId}:${activePreview.artifact.version}`
+                  : undefined
+              }
+              filenameBase={modelFilename(
+                activePreview?.type === 'artifact'
+                  ? activePreview.artifact.title
+                  : undefined,
+                conversation.title,
+              )}
+              geometry={geometry}
+              coloredGroup={assemblyGroup}
+              color="#5c6470"
+            />
+          ) : previewError ? (
+            <div className="max-w-sm px-6 text-center text-sm text-red-300">
+              {previewError}
+            </div>
+          ) : (
+            <div className="text-sm text-adam-text-secondary">
+              Nothing to preview yet
+            </div>
+          )}
+        </div>
+      }
+      mobilePreviewSlot={
+        <div className="flex h-full w-full items-center justify-center bg-adam-bg-secondary-dark">
+          {previewLoading ? (
+            <Loader showLoadingText />
+          ) : geometry || assemblyGroup ? (
+            <ThreeScene
+              previewKey={
+                activePreview?.type === 'artifact'
+                  ? `${activePreview.messageId}:${activePreview.artifact.version}`
+                  : undefined
+              }
+              filenameBase={modelFilename(
+                activePreview?.type === 'artifact'
+                  ? activePreview.artifact.title
+                  : undefined,
+                conversation.title,
+              )}
+              geometry={geometry}
+              coloredGroup={assemblyGroup}
+              color="#5c6470"
+              isMobile={true}
+            />
+          ) : previewError ? (
+            <div className="max-w-sm px-6 text-center text-sm text-red-300">
+              {previewError}
+            </div>
+          ) : (
+            <div className="text-sm text-adam-text-secondary">
+              Nothing to preview yet
+            </div>
+          )}
+        </div>
+      }
+      parametersSlot={
+        <div className="relative h-full">
+          <IrisModelPanel
+            parameters={parameters}
+            onParameterChange={changeParameters}
+          />
+        </div>
+      }
+      mobileParametersSlot={
+        <ParameterSheetContent
+          filenameBase={modelFilename(
+            activePreview?.type === 'artifact'
+              ? activePreview.artifact.title
+              : undefined,
+            conversation.title,
+          )}
+          parameters={parameters}
+          onParameterChange={changeParameters}
+          stepExporter={stepExporter}
+          stlExporter={stlExporter}
+          code={
+            activePreview?.type === 'artifact'
+              ? activePreview.artifact.code
+              : undefined
+          }
+        />
+      }
+    />
+  );
+}
+
+type LatestPreview = {
+  type: 'artifact';
+  messageId: string;
+  artifact: ParametricArtifact;
+} | null;
+
+function findLatestPreview(
+  messages: { id: string; parts: AppUIMessage['parts'] }[],
+): LatestPreview {
+  for (
+    let messageIndex = messages.length - 1;
+    messageIndex >= 0;
+    messageIndex -= 1
+  ) {
+    const message = messages[messageIndex];
+    for (
+      let partIndex = message.parts.length - 1;
+      partIndex >= 0;
+      partIndex -= 1
+    ) {
+      const part = message.parts[partIndex];
+      if (
+        part.type === 'tool-build_parametric_model' &&
+        part.state !== 'input-streaming' &&
+        isParametricArtifact(part.input)
+      ) {
+        return {
+          type: 'artifact',
+          messageId: message.id,
+          artifact: part.input,
+        };
+      }
+    }
+  }
+  return null;
+}

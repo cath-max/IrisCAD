@@ -10,6 +10,10 @@
 
 <h3 align="center">Build parametric CAD assemblies, patch only what changed.</h3>
 
+<p align="center">
+  <a href="https://iriscad.com"><strong>Try it now! →</strong></a>
+</p>
+
 Iris is an AI CAD agent for building and revising parametric parts and assemblies in the browser.
 
 Describe a model with text or reference images. Iris automatically builds and inspects it, then renders an interactive 3D preview.
